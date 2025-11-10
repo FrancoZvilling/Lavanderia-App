@@ -1,0 +1,41 @@
+.table-container {
+background-color: var(--color-blanco);
+border-radius: 8px;
+box-shadow: var(--sombra-suave);
+overflow: hidden; /* Para que el borde redondeado afecte a la tabla */
+width: 100%;
+}
+table {
+width: 100%;
+border-collapse: collapse; /* Une los bordes de las celdas */
+}
+th, td {
+padding: 15px 20px;
+text-align: left;
+border-bottom: 1px solid var(--color-secundario);
+}
+thead tr {
+background-color: var(--color-secundario);
+}
+th {
+font-weight: 600;
+color: var(--color-primario);
+}
+tbody tr:last-child td {
+border-bottom: none; /* Elimina la última línea para un look más limpio */
+}
+tbody tr:hover {
+background-color: #f1f5f9; /* Un gris muy sutil al pasar el mouse */
+}
+.monto {
+font-weight: 600;
+}
+
+.table-container {
+    background-color: var(--color-blanco);
+    border-radius: 8px;
+    box-shadow: var(--sombra-suave);
+    overflow: hidden;
+    width: 100%;
+    overflow-x: auto; /* ¡Esta es la línea clave! */
+}

@@ -1,0 +1,98 @@
+.layout-container {
+  display: flex;
+  height: 100vh; /* Ocupa toda la altura de la pantalla */
+}
+
+.sidebar {
+  width: 250px;
+  background-color: var(--color-blanco);
+  box-shadow: var(--sombra-suave);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.sidebar-header {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-secundario);
+  text-align: center;
+}
+
+.sidebar-header h3 {
+  color: var(--color-primario);
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.nav-list li a {
+  display: flex;
+  align-items: center;
+  gap: 15px; /* Espacio entre icono y texto */
+  padding: 15px;
+  text-decoration: none;
+  color: var(--color-texto);
+  border-radius: 8px;
+  transition: background-color 0.3s, color 0.3s;
+  font-weight: 500;
+}
+
+.nav-list li a:hover {
+  background-color: var(--color-secundario);
+}
+
+/* Estilo para el link activo */
+.nav-list li a.active {
+  background-color: var(--color-primario);
+  color: var(--color-blanco);
+}
+
+.main-content {
+  flex-grow: 1; /* Ocupa el resto del espacio */
+  padding: 40px;
+  overflow-y: auto; /* Permite scroll si el contenido es largo */
+}
+
+.backdrop {
+  display: none; /* Oculto en escritorio */
+}
+
+/* --- Estilos para Móviles y Tablets --- */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1100;
+    transform: translateX(-100%); /* Oculto fuera de la pantalla */
+    transition: transform 0.3s ease-in-out;
+    padding-top: 80px; /* Espacio para el botón de hamburguesa */
+  }
+
+  .sidebar.open {
+    transform: translateX(0); /* Lo hacemos visible */
+  }
+
+  .main-content {
+    padding: 20px;
+    padding-top: 80px; /* Dejar espacio para el header fijo del botón */
+  }
+  
+  .backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1050; /* Detrás del sidebar, pero encima del contenido */
+  }
+}

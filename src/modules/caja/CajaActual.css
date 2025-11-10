@@ -1,0 +1,137 @@
+/* --- Estilos Base (Mobile First) --- */
+
+.caja-card {
+    background-color: var(--color-blanco);
+    border-radius: 8px;
+    box-shadow: var(--sombra-suave);
+    padding: 20px;
+    display: flex;
+    /* En móvil, los elementos se apilan verticalmente */
+    flex-direction: column; 
+    align-items: stretch; /* Ocupan todo el ancho */
+    gap: 20px;
+}
+
+.caja-card.cerrada {
+    border-left: 5px solid #e74c3c;
+    text-align: center; /* Centramos el texto en móvil */
+}
+
+.caja-card.abierta {
+    border-left: 5px solid #27ae60;
+}
+
+.caja-info h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.caja-info p {
+    margin: 0;
+    color: #7f8c8d;
+}
+
+.open-caja-btn {
+    font-size: 1.1rem;
+    padding: 15px 25px;
+}
+
+/* --- Estilos para la Caja Abierta --- */
+
+.caja-header {
+    display: flex;
+    /* En móvil, el título y el botón se apilan */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+    width: 100%;
+}
+
+.caja-header h2 {
+    margin: 0;
+}
+
+.caja-details {
+    display: grid;
+    /* En móvil, mostramos una sola columna */
+    grid-template-columns: 1fr;
+    gap: 15px;
+    text-align: center;
+}
+
+.caja-details div {
+    background-color: var(--color-secundario);
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+
+.caja-details span {
+    color: var(--color-texto);
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.caja-details strong {
+    font-size: 1.8rem;
+    color: var(--color-primario);
+}
+
+.primary-button-danger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: #e74c3c;
+    color: var(--color-blanco);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    /* Hacemos que ocupe todo el ancho disponible en móvil */
+    justify-content: center;
+}
+
+.primary-button-danger:hover {
+    background-color: #c0392b;
+}
+
+
+/* --- Media Query para Escritorio (Tablet y más grandes) --- */
+@media (min-width: 768px) {
+    .caja-card {
+        /* En escritorio, la tarjeta cerrada vuelve a ser horizontal */
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+    }
+    
+    .caja-card.abierta {
+        /* La tarjeta abierta mantiene su dirección vertical, pero alineamos diferente */
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .caja-header {
+        /* El header de la caja abierta vuelve a ser horizontal */
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .caja-details {
+        /* La grilla de detalles vuelve a tener 3 columnas */
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+    }
+    
+    .primary-button-danger {
+        /* El botón de cerrar ya no ocupa todo el ancho */
+        justify-content: flex-start; 
+    }
+}

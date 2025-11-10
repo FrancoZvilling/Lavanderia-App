@@ -1,0 +1,16 @@
+/* Usaremos los mismos estilos de la tabla de ventas, pero añadimos estilos para el arqueo */
+
+.arqueo-ok {
+    color: #27ae60; /* Verde */
+    font-weight: bold;
+}
+
+.arqueo-faltante {
+    color: #e74c3c; /* Rojo */
+    font-weight: bold;
+}
+
+.arqueo-sobrante {
+    color: #f39c12; /* Naranja */
+    font-weight: bold;
+}

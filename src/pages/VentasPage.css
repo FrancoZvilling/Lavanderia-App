@@ -1,0 +1,83 @@
+.page-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px; /* Espacio entre los elementos principales de la página */
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 2rem;
+    color: var(--color-texto);
+}
+
+/* Estilos de botones genéricos que podemos reutilizar */
+.primary-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: var(--color-primario);
+    color: var(--color-blanco);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.primary-button:hover {
+    background-color: #2980b9; /* Un azul un poco más oscuro */
+}
+
+.secondary-button {
+    padding: 10px 20px;
+    background-color: var(--color-blanco);
+    color: var(--color-primario);
+    border: 1px solid var(--color-primario);
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.secondary-button:hover {
+    background-color: var(--color-secundario);
+}
+
+.filters-container {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    padding: 20px;
+    background-color: var(--color-blanco);
+    border-radius: 8px;
+    box-shadow: var(--sombra-suave);
+}
+
+.filter-input {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    min-width: 200px;
+}
+
+@media (max-width: 768px) {
+  .page-header, .filters-container {
+    flex-direction: column;
+    align-items: stretch; /* Ocupan todo el ancho */
+    gap: 15px;
+  }
+
+  .page-header h1 {
+    font-size: 1.8rem;
+    text-align: center;
+  }
+}

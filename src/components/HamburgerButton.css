@@ -1,0 +1,37 @@
+.hamburger-button {
+  display: none; /* Oculto por defecto en escritorio */
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  z-index: 1200;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+}
+
+.hamburger-button div {
+  width: 30px;
+  height: 3px;
+  background-color: var(--color-primario);
+  margin: 6px 0;
+  transition: all 0.4s ease-in-out;
+}
+
+/* Animación a 'X' cuando está abierto */
+.hamburger-button.open div:nth-child(1) {
+  transform: rotate(-45deg) translate(-7px, 7px);
+}
+.hamburger-button.open div:nth-child(2) {
+  opacity: 0;
+}
+.hamburger-button.open div:nth-child(3) {
+  transform: rotate(45deg) translate(-7px, -7px);
+}
+
+/* Media query para mostrarlo solo en móviles */
+@media (max-width: 768px) {
+  .hamburger-button {
+    display: block;
+  }
+}

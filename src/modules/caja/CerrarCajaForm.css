@@ -1,0 +1,27 @@
+.summary-grid {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px 20px;
+    background-color: var(--color-secundario);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.summary-grid div {
+    font-size: 1.1rem;
+}
+
+.summary-total {
+    font-weight: bold;
+}
+
+.arqueo-section {
+    margin-top: 10px;
+    border: 1px solid #ccc;
+}
+
+/* Reutilizamos las clases de la tabla para los colores del arqueo */
+.arqueo-ok { color: #27ae60; }
+.arqueo-faltante { color: #e74c3c; }
+.arqueo-sobrante { color: #f39c12; }

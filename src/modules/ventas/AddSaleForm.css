@@ -1,0 +1,108 @@
+.add-sale-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: var(--color-texto);
+}
+
+.form-group input,
+.form-group textarea {
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.prenda-item-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.prenda-select {
+  flex: 3; /* Ocupa más espacio */
+}
+
+.prenda-cantidad {
+  flex: 1;
+  min-width: 60px;
+}
+
+
+
+.remove-item-btn {
+  background: none;
+  border: none;
+  color: #e74c3c;
+  cursor: pointer;
+  padding: 5px;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+
+.remove-item-btn:hover {
+  color: #c0392b;
+}
+
+.remove-item-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.add-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: 1px dashed var(--color-primario);
+  color: var(--color-primario);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+  align-self: flex-start; /* Se alinea a la izquierda */
+  margin-top: 10px;
+}
+
+.add-item-btn:hover {
+  background-color: var(--color-secundario);
+}
+
+.total-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
+  font-size: 1.5rem;
+  margin-top: 10px;
+}
+
+.total-container span {
+  font-weight: bold;
+  color: var(--color-primario);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
