@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // 1. Importar useState
+import { useState } from 'react'; // 1. Importar useState
 import { FaPlus } from 'react-icons/fa';
 import VentasTable from '../modules/ventas/VentasTable';
 import { mockVentas, mockClientes, mockTiposDePrenda } from '../data/mockData';

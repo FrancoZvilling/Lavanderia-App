@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import ClientCard from '../modules/clientes/ClientCard';
 import Modal from '../components/Modal';
@@ -9,17 +9,13 @@ import './ClientesPage.css';
 import './VentasPage.css';
 
 const ClientesPage = () => {
-  // Los clientes ahora están en un estado para poder actualizarlos
   const [clientes, setClientes] = useState<Cliente[]>(mockClientes);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstadoLavado | 'Todos'>('Todos');
-  
-  // Estados para el modal
   const [isCanjeModalOpen, setIsCanjeModalOpen] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
 
   const filteredClientes = useMemo(() => {
-    // Usamos el estado 'clientes' en lugar de 'mockClientes'
     return clientes.filter(cliente => {
       const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`.toLowerCase();
       const searchMatch = nombreCompleto.includes(searchTerm.toLowerCase());
@@ -41,41 +37,41 @@ const ClientesPage = () => {
   const handleConfirmCanje = (premio: Premio) => {
     if (!clienteSeleccionado) return;
 
-    // Usamos una promesa para manejar la confirmación del usuario
-    const promise = new Promise<void>((resolve, reject) => {
-        // Creamos un componente personalizado para la notificación de confirmación
-        const Confirmation = ({ closeToast }: { closeToast: () => void }) => (
-            <div>
-                <p style={{ marginBottom: '15px' }}>¿Seguro que quieres canjear "{premio.nombre}"?</p>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                    {/* Botón para cancelar (cierra el toast y rechaza la promesa) */}
-                    <button className="secondary-button small-button" onClick={() => { closeToast(); reject(); }}>Cancelar</button>
-                    {/* Botón para confirmar (cierra el toast y resuelve la promesa) */}
-                    <button className="primary-button small-button" onClick={() => { closeToast(); resolve(); }}>Confirmar</button>
-                </div>
-            </div>
-        );
-        // Mostramos el toast de confirmación
-        toast(<Confirmation />, { autoClose: false, closeOnClick: false, closeButton: false });
-    });
+    // Esta es la función que se ejecutará si el usuario hace clic en "Confirmar"
+    const performCanje = () => {
+      setClientes(prevClientes =>
+        prevClientes.map(c =>
+          c.id === clienteSeleccionado!.id // Usamos '!' porque sabemos que no es null aquí
+            ? { ...c, puntos: c.puntos - premio.puntosRequeridos }
+            : c
+        )
+      );
+      handleCloseCanjeModal();
+      toast.success(`¡"${premio.nombre}" canjeado con éxito!`);
+    };
 
-    toast.promise(promise, {
-      pending: 'Procesando canje...', // Mensaje mientras se espera la confirmación
-      success: {
-        render(){
-          // Lógica de actualización de puntos
-          setClientes(prevClientes =>
-              prevClientes.map(c =>
-                  c.id === clienteSeleccionado.id
-                      ? { ...c, puntos: c.puntos - premio.puntosRequeridos }
-                      : c
-              )
-          );
-          handleCloseCanjeModal();
-          return `¡"${premio.nombre}" canjeado con éxito!`;
-        }
-      },
-      error: 'Canje cancelado por el usuario.' // Mensaje si se cancela
+    // Este es el componente que se mostrará dentro de la notificación
+    const ConfirmationUI = ({ closeToast }: { closeToast: () => void }) => (
+      <div>
+        <p style={{ marginBottom: '15px' }}>¿Seguro que quieres canjear "{premio.nombre}"?</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button className="secondary-button small-button" onClick={closeToast}>Cancelar</button>
+          <button className="primary-button small-button" onClick={() => {
+            performCanje();
+            closeToast();
+          }}>Confirmar</button>
+        </div>
+      </div>
+    );
+
+    // ---- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ----
+    // Pasamos una función que recibe 'closeToast' y renderiza nuestro componente.
+    // TypeScript ahora entiende que 'closeToast' se está proporcionando correctamente.
+    toast.info(({ closeToast }) => <ConfirmationUI closeToast={closeToast} />, {
+      autoClose: false,
+      closeOnClick: false,
+      closeButton: false,
+      toastId: `confirm-canje-${premio.id}` // ID único para evitar duplicados
     });
   };
 
@@ -85,19 +81,8 @@ const ClientesPage = () => {
         <h1>Gestión de Clientes</h1>
       </header>
       <div className="filters-container">
-        <input
-          type="text"
-          placeholder="Buscar cliente por nombre..."
-          className="filter-input"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flexGrow: 1 }}
-        />
-        <select
-          className="filter-input"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as EstadoLavado | 'Todos')}
-        >
+        <input type="text" placeholder="Buscar cliente por nombre..." className="filter-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flexGrow: 1 }} />
+        <select className="filter-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as EstadoLavado | 'Todos')}>
           <option value="Todos">Todos los estados</option>
           <option value="En preparación">En preparación</option>
           <option value="Listo">Listo</option>
@@ -110,11 +95,10 @@ const ClientesPage = () => {
           <ClientCard key={cliente.id} cliente={cliente} onCanjearClick={handleOpenCanjeModal} />
         ))}
         {filteredClientes.length === 0 && (
-            <p className="no-results">No se encontraron clientes que coincidan con la búsqueda.</p>
+          <p className="no-results">No se encontraron clientes que coincidan con la búsqueda.</p>
         )}
       </div>
 
-      {/* Renderizado del Modal */}
       {clienteSeleccionado && (
         <Modal isOpen={isCanjeModalOpen} onClose={handleCloseCanjeModal} title={`Canjear Puntos`}>
           <CanjearPuntosModal

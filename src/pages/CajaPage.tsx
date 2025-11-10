@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import CajaActual from '../modules/caja/CajaActual';
 import HistorialCajaTable from '../modules/caja/HistorialCajaTable';
 import AbrirCajaForm from '../modules/caja/AbrirCajaForm';

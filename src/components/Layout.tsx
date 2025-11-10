@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { FaShoppingCart, FaCashRegister, FaUsers } from 'react-icons/fa';
 import HamburgerButton from './HamburgerButton'; // 1. Importar
