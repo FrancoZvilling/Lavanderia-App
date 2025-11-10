@@ -9,17 +9,24 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 20px 0; /* Espacio vertical para que el modal no toque los bordes */
 }
 
+/* --- ESTILOS MODIFICADOS --- */
 .modal-content {
   background-color: var(--color-blanco);
-  padding: 20px;
   border-radius: 8px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
   width: 100%;
-  max-width: 600px; /* Ancho máximo del modal */
+  max-width: 600px;
   z-index: 1001;
   animation: slide-down 0.3s ease-out;
+
+  /* Flexbox para controlar el layout interno */
+  display: flex;
+  flex-direction: column;
+  /* Altura máxima: 90% de la altura de la ventana */
+  max-height: 90vh; 
 }
 
 .modal-header {
@@ -27,8 +34,8 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--color-secundario);
-  padding-bottom: 15px;
-  margin-bottom: 20px;
+  padding: 20px; /* Unificado el padding */
+  flex-shrink: 0; /* Evita que el header se encoja */
 }
 
 .modal-header h2 {
@@ -49,11 +56,13 @@
   color: var(--color-texto);
 }
 
+/* --- ESTILOS MODIFICADOS Y CLAVE --- */
 .modal-body {
-  padding-top: 10px;
+  padding: 20px; /* Unificado el padding */
+  overflow-y: auto; /* AÑADE SCROLL SI EL CONTENIDO SE DESBORDA */
+  flex-grow: 1; /* Permite que esta área crezca para ocupar el espacio disponible */
 }
 
-/* Animación para que el modal aparezca suavemente */
 @keyframes slide-down {
   from {
     transform: translateY(-50px);
@@ -67,7 +76,10 @@
 
 @media (max-width: 768px) {
   .modal-content {
-    width: 90%; /* Ocupa más ancho en móvil */
-    padding: 15px;
+    width: 90%;
+    max-height: 85vh; /* Un poco menos de altura en móviles */
+  }
+  .modal-header, .modal-body {
+    padding: 15px; /* Menos padding en pantallas pequeñas */
   }
 }

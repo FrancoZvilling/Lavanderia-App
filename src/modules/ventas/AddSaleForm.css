@@ -38,15 +38,13 @@
 }
 
 .prenda-select {
-  flex: 3; /* Ocupa más espacio */
+  flex: 3;
 }
 
 .prenda-cantidad {
   flex: 1;
   min-width: 60px;
 }
-
-
 
 .remove-item-btn {
   background: none;
@@ -78,7 +76,7 @@
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.3s, color 0.3s;
-  align-self: flex-start; /* Se alinea a la izquierda */
+  align-self: flex-start;
   margin-top: 10px;
 }
 
