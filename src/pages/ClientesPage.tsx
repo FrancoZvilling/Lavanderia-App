@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
-import { toast } from 'react-toastify';
+import React, { useState, useMemo } from 'react';
+import { toast } from 'react-toastify'; // Necesitamos las notificaciones de nuevo
 import ClientCard from '../modules/clientes/ClientCard';
-import Modal from '../components/Modal';
-import CanjearPuntosModal from '../modules/clientes/CanjearPuntosModal';
-import { mockClientes, mockPremios } from '../data/mockData';
-import type { Cliente, EstadoLavado, Premio } from '../types';
+import Modal from '../components/Modal'; // Importamos el Modal genérico
+import ChangeStatusModal from '../modules/clientes/ChangeStatusModal'; // Y nuestro nuevo modal
+import { mockClientes } from '../data/mockData';
+import type { Cliente, EstadoLavado } from '../types';
 import './ClientesPage.css';
 import './VentasPage.css';
 
@@ -12,7 +12,9 @@ const ClientesPage = () => {
   const [clientes, setClientes] = useState<Cliente[]>(mockClientes);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstadoLavado | 'Todos'>('Todos');
-  const [isCanjeModalOpen, setIsCanjeModalOpen] = useState(false);
+  
+  // Estados para manejar el modal de cambio de estado
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
 
   const filteredClientes = useMemo(() => {
@@ -24,55 +26,28 @@ const ClientesPage = () => {
     });
   }, [searchTerm, statusFilter, clientes]);
 
-  const handleOpenCanjeModal = (cliente: Cliente) => {
+  const handleOpenStatusModal = (cliente: Cliente) => {
     setClienteSeleccionado(cliente);
-    setIsCanjeModalOpen(true);
+    setIsStatusModalOpen(true);
   };
 
-  const handleCloseCanjeModal = () => {
-    setIsCanjeModalOpen(false);
+  const handleCloseStatusModal = () => {
+    setIsStatusModalOpen(false);
     setClienteSeleccionado(null);
   };
 
-  const handleConfirmCanje = (premio: Premio) => {
+  // Función que actualiza el estado del cliente en la lista
+  const handleUpdateStatus = (newStatus: EstadoLavado) => {
     if (!clienteSeleccionado) return;
 
-    // Esta es la función que se ejecutará si el usuario hace clic en "Confirmar"
-    const performCanje = () => {
-      setClientes(prevClientes =>
-        prevClientes.map(c =>
-          c.id === clienteSeleccionado!.id // Usamos '!' porque sabemos que no es null aquí
-            ? { ...c, puntos: c.puntos - premio.puntosRequeridos }
-            : c
-        )
-      );
-      handleCloseCanjeModal();
-      toast.success(`¡"${premio.nombre}" canjeado con éxito!`);
-    };
-
-    // Este es el componente que se mostrará dentro de la notificación
-    const ConfirmationUI = ({ closeToast }: { closeToast: () => void }) => (
-      <div>
-        <p style={{ marginBottom: '15px' }}>¿Seguro que quieres canjear "{premio.nombre}"?</p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button className="secondary-button small-button" onClick={closeToast}>Cancelar</button>
-          <button className="primary-button small-button" onClick={() => {
-            performCanje();
-            closeToast();
-          }}>Confirmar</button>
-        </div>
-      </div>
+    setClientes(prevClientes =>
+      prevClientes.map(c =>
+        c.id === clienteSeleccionado.id ? { ...c, estadoLavado: newStatus } : c
+      )
     );
 
-    // ---- LA CORRECCIÓN CLAVE ESTÁ AQUÍ ----
-    // Pasamos una función que recibe 'closeToast' y renderiza nuestro componente.
-    // TypeScript ahora entiende que 'closeToast' se está proporcionando correctamente.
-    toast.info(({ closeToast }) => <ConfirmationUI closeToast={closeToast} />, {
-      autoClose: false,
-      closeOnClick: false,
-      closeButton: false,
-      toastId: `confirm-canje-${premio.id}` // ID único para evitar duplicados
-    });
+    toast.success(`Estado de ${clienteSeleccionado.nombre} actualizado a "${newStatus}".`);
+    handleCloseStatusModal();
   };
 
   return (
@@ -81,6 +56,7 @@ const ClientesPage = () => {
         <h1>Gestión de Clientes</h1>
       </header>
       <div className="filters-container">
+        {/* ... (filtros sin cambios) ... */}
         <input type="text" placeholder="Buscar cliente por nombre..." className="filter-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flexGrow: 1 }} />
         <select className="filter-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as EstadoLavado | 'Todos')}>
           <option value="Todos">Todos los estados</option>
@@ -92,19 +68,22 @@ const ClientesPage = () => {
 
       <div className="client-grid">
         {filteredClientes.map(cliente => (
-          <ClientCard key={cliente.id} cliente={cliente} onCanjearClick={handleOpenCanjeModal} />
+          // Pasamos la nueva función a la tarjeta
+          <ClientCard key={cliente.id} cliente={cliente} onStatusChangeClick={handleOpenStatusModal} />
         ))}
-        {filteredClientes.length === 0 && (
-          <p className="no-results">No se encontraron clientes que coincidan con la búsqueda.</p>
-        )}
+        {filteredClientes.length === 0 && <p className="no-results">No se encontraron clientes.</p>}
       </div>
 
+      {/* Renderizado del Modal de Cambio de Estado */}
       {clienteSeleccionado && (
-        <Modal isOpen={isCanjeModalOpen} onClose={handleCloseCanjeModal} title={`Canjear Puntos`}>
-          <CanjearPuntosModal
-            cliente={clienteSeleccionado}
-            premios={mockPremios}
-            onConfirmCanje={handleConfirmCanje}
+        <Modal 
+          isOpen={isStatusModalOpen} 
+          onClose={handleCloseStatusModal}
+          title={`Cambiar estado para ${clienteSeleccionado.nombre}`}
+        >
+          <ChangeStatusModal
+            currentStatus={clienteSeleccionado.estadoLavado}
+            onStatusSelect={handleUpdateStatus}
           />
         </Modal>
       )}

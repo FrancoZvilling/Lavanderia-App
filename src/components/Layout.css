@@ -96,3 +96,29 @@
     z-index: 1050; /* Detrás del sidebar, pero encima del contenido */
   }
 }
+
+.sidebar-footer {
+  margin-top: auto; /* Empuja este elemento al fondo del sidebar */
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  padding: 15px;
+  background: none;
+  border: none;
+  color: var(--color-texto);
+  font-size: 1rem;
+  font-weight: 500;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.logout-button:hover {
+  background-color: #ffebee; /* Un rojo muy pálido */
+  color: #c0392b;
+}

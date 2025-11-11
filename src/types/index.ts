@@ -21,16 +21,17 @@ export interface TipoDePrenda { // <-- ASEGÚRATE DE QUE TENGA 'export'
 }
 
 // Interfaz para una Venta
-export interface Venta { // <-- ASEGÚRATE DE QUE TENGA 'export'
+export interface Venta {
   id: number;
   fecha: Date;
-  clienteId: number;
+  // CAMBIO CLAVE: clienteId ahora puede ser un número o nulo
+  clienteId: number | null; 
   montoTotal: number;
-  metodoDePago: MetodoDePago;
+  metodoDePago: MetodoDePago; // Asumiremos un método por defecto por ahora
   items: {
-    tipoPrendaId: number;
+    // Para simplificar, solo guardaremos el nombre de la prenda y la cantidad
+    nombrePrenda: string; 
     cantidad: number;
-    precio: number;
   }[];
   observaciones?: string;
 }

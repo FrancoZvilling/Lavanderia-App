@@ -82,16 +82,3 @@
     font-size: 2rem;
     color: var(--color-primario);
 }
-
-.card-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: auto; /* Empuja los botones al fondo */
-}
-
-/* Hacemos una versión más pequeña de los botones */
-.small-button {
-    padding: 8px 10px;
-    font-size: 0.9rem;
-}

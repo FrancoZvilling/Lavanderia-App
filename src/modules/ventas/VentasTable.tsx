@@ -1,22 +1,25 @@
 import React from 'react';
+// 1. Ajustamos la importación del tipo
 import type { Venta, Cliente } from '../../types';
 import './VentasTable.css';
 
-// El componente recibirá una lista de ventas y de clientes como props
 interface VentasTableProps {
   ventas: Venta[];
   clientes: Cliente[];
 }
 
 const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes }) => {
-
-  // Función auxiliar para encontrar el nombre del cliente por su ID
-  const getNombreCliente = (clienteId: number) => {
+  // 2. Modificamos la función para aceptar un ID nulo
+  const getNombreCliente = (clienteId: number | null) => {
+    // Si no hay ID, es una venta anónima
+    if (clienteId === null) {
+      return <em>Cliente Anónimo</em>;
+    }
     const cliente = clientes.find(c => c.id === clienteId);
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente no encontrado';
   };
 
-  // Función para formatear la fecha y hora
+  // ... (el resto del componente sigue igual) ...
   const formatFecha = (fecha: Date) => {
     return new Intl.DateTimeFormat('es-AR', {
       year: 'numeric',
@@ -27,7 +30,6 @@ const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes }) => {
     }).format(fecha);
   };
   
-  // Función para formatear el monto a moneda local (Peso Argentino)
   const formatMoneda = (monto: number) => {
     return new Intl.NumberFormat('es-AR', {
         style: 'currency',
@@ -54,7 +56,7 @@ const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes }) => {
               <td>{getNombreCliente(venta.clienteId)}</td>
               <td className="monto">{formatMoneda(venta.montoTotal)}</td>
               <td>{venta.metodoDePago}</td>
-              <td>{venta.observaciones || '-'}</td>
+              <td>{venta.items.map(item => `${item.cantidad}x ${item.nombrePrenda}`).join(', ')}</td>
             </tr>
           ))}
         </tbody>

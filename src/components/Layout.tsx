@@ -1,37 +1,63 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { FaShoppingCart, FaCashRegister, FaUsers } from 'react-icons/fa';
-import HamburgerButton from './HamburgerButton'; // 1. Importar
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
+import { FaShoppingCart, FaCashRegister, FaUsers, FaSignOutAlt } from 'react-icons/fa';
+import HamburgerButton from './HamburgerButton';
 import './Layout.css';
 
 const Layout = () => {
-  // 2. Estado para la visibilidad de la barra lateral en móvil
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+
+  // Función para manejar el cierre de sesión del usuario
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // El componente ProtectedRoute se encargará de redirigir a /login
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
+  };
 
   return (
     <div className="layout-container">
       <HamburgerButton isOpen={isSidebarOpen} onClick={() => setSidebarOpen(!isSidebarOpen)} />
       
-      {/* 3. Añadimos una clase 'open' condicionalmente */}
       <nav className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h3>Lavandería PRO</h3>
         </div>
         <ul className="nav-list">
-          {/* 4. Al hacer clic en un link, cerramos la barra */}
           <li onClick={() => setSidebarOpen(false)}>
-            <NavLink to="/"> <FaShoppingCart /> <span>Ventas</span> </NavLink>
+            <NavLink to="/">
+              <FaShoppingCart />
+              <span>Ventas</span>
+            </NavLink>
           </li>
           <li onClick={() => setSidebarOpen(false)}>
-            <NavLink to="/caja"> <FaCashRegister /> <span>Caja</span> </NavLink>
+            <NavLink to="/caja">
+              <FaCashRegister />
+              <span>Caja</span>
+            </NavLink>
           </li>
           <li onClick={() => setSidebarOpen(false)}>
-            <NavLink to="/clientes"> <FaUsers /> <span>Clientes</span> </NavLink>
+            <NavLink to="/clientes">
+              <FaUsers />
+              <span>Clientes</span>
+            </NavLink>
           </li>
         </ul>
+        
+        {/* Sección del Footer de la Barra Lateral */}
+        <div className="sidebar-footer">
+          <button className="logout-button" onClick={handleLogout}>
+            <FaSignOutAlt />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
       </nav>
 
-      {/* 5. Overlay para cerrar el menú al tocar fuera */}
+      {/* Overlay para cerrar el menú al tocar fuera en móvil */}
       {isSidebarOpen && <div className="backdrop" onClick={() => setSidebarOpen(false)} />}
 
       <main className="main-content">

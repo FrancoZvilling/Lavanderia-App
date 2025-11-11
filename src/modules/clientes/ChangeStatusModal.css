@@ -1,0 +1,39 @@
+.change-status-container {
+    text-align: center;
+}
+
+.change-status-container p {
+    margin-top: 0;
+    margin-bottom: 25px;
+    font-size: 1.1rem;
+}
+
+.status-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.status-option-btn {
+    padding: 15px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 2px solid var(--color-primario);
+    background-color: var(--color-blanco);
+    color: var(--color-primario);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.status-option-btn:hover:not(:disabled) {
+    background-color: var(--color-primario);
+    color: var(--color-blanco);
+}
+
+.status-option-btn.active {
+    background-color: var(--color-secundario);
+    color: #999;
+    border-color: #ddd;
+    cursor: default;
+}

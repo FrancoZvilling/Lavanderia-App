@@ -1,27 +1,34 @@
-import { useState } from 'react'; // 1. Importar useState
+import { useState } from 'react';
 import { FaPlus } from 'react-icons/fa';
 import VentasTable from '../modules/ventas/VentasTable';
 import { mockVentas, mockClientes, mockTiposDePrenda } from '../data/mockData';
-import Modal from '../components/Modal'; // 2. Importar Modal
-import AddSaleForm from '../modules/ventas/AddSaleForm'; // 3. Importar AddSaleForm
+import Modal from '../components/Modal';
+import AddSaleForm from '../modules/ventas/AddSaleForm';
+import type { Venta } from '../types'; // Importamos el tipo Venta
 import './VentasPage.css';
 
 const VentasPage = () => {
-  // 4. Estado para controlar la visibilidad del modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 1. La lista de ventas ahora es un estado
+  const [ventas, setVentas] = useState<Venta[]>(mockVentas);
+
+  // 2. Función para añadir la nueva venta al estado
+  const handleSaveVenta = (nuevaVenta: Venta) => {
+    setVentas(prevVentas => [nuevaVenta, ...prevVentas]); // Añade la nueva venta al principio
+    setIsModalOpen(false); // Cierra el modal
+  };
 
   return (
     <div className="page-container">
       <header className="page-header">
         <h1>Historial de Ventas</h1>
-        {/* 5. El botón ahora abre el modal */}
         <button className="primary-button" onClick={() => setIsModalOpen(true)}>
           <FaPlus />
           <span>Registrar Nueva Venta</span>
         </button>
       </header>
 
-      {/* ... la sección de filtros sigue igual ... */}
+      {/* ... (filtros sin cambios) ... */}
       <div className="filters-container">
         <input type="date" className="filter-input" />
         <select className="filter-input">
@@ -35,9 +42,9 @@ const VentasPage = () => {
         <button className="secondary-button">Filtrar</button>
       </div>
 
-      <VentasTable ventas={mockVentas} clientes={mockClientes} />
+      {/* 3. La tabla ahora consume el estado 'ventas' */}
+      <VentasTable ventas={ventas} clientes={mockClientes} />
       
-      {/* 6. Renderizamos el Modal y su contenido */}
       <Modal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
@@ -47,6 +54,7 @@ const VentasPage = () => {
           clientes={mockClientes}
           tiposDePrenda={mockTiposDePrenda}
           onClose={() => setIsModalOpen(false)}
+          onSave={handleSaveVenta} // 4. Pasamos la función de guardado al formulario
         />
       </Modal>
     </div>

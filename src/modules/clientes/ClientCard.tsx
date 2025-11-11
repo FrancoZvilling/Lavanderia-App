@@ -1,16 +1,15 @@
 import React from 'react';
 import type { Cliente, EstadoLavado } from '../../types';
-import { FaPhone, FaEnvelope, FaGift, FaDownload, FaEdit } from 'react-icons/fa';
+import { FaPhone, FaEnvelope, FaEdit } from 'react-icons/fa';
 import './ClientCard.css';
 
-// 1. AÑADIMOS la nueva prop 'onCanjearClick' a la interfaz
 interface ClientCardProps {
   cliente: Cliente;
-  onCanjearClick: (cliente: Cliente) => void;
+  onStatusChangeClick: (cliente: Cliente) => void; // 1. Nueva prop
 }
 
-// 2. RECIBIMOS la nueva prop 'onCanjearClick' en el componente
-const ClientCard: React.FC<ClientCardProps> = ({ cliente, onCanjearClick }) => {
+const ClientCard: React.FC<ClientCardProps> = ({ cliente, onStatusChangeClick }) => {
+  // ... (función getStatusClass sigue igual)
   const getStatusClass = (estado: EstadoLavado) => {
     switch (estado) {
       case 'En preparación': return 'status-preparacion';
@@ -24,11 +23,17 @@ const ClientCard: React.FC<ClientCardProps> = ({ cliente, onCanjearClick }) => {
     <div className="client-card">
       <div className="card-header">
         <h3>{cliente.nombre} {cliente.apellido}</h3>
-        <div className={`status-badge ${getStatusClass(cliente.estadoLavado)}`}>
+        {/* 2. El div ahora es clickeable y llama a la función de la prop */}
+        <div 
+          className={`status-badge ${getStatusClass(cliente.estadoLavado)}`}
+          onClick={() => onStatusChangeClick(cliente)}
+          title="Cambiar estado" // Mejora la accesibilidad
+        >
           {cliente.estadoLavado}
-          <FaEdit className="edit-icon" title="Cambiar estado" />
+          <FaEdit className="edit-icon" />
         </div>
       </div>
+      {/* ... (el resto de la tarjeta sigue igual) ... */}
       <div className="card-body">
         <div className="contact-info">
           {cliente.contacto.includes('@') ? <FaEnvelope /> : <FaPhone />}
@@ -38,17 +43,6 @@ const ClientCard: React.FC<ClientCardProps> = ({ cliente, onCanjearClick }) => {
           <span>Puntos de Fidelidad</span>
           <strong>{cliente.puntos.toLocaleString('es-AR')} pts</strong>
         </div>
-      </div>
-      <div className="card-actions">
-        {/* 3. AÑADIMOS el evento onClick al botón de Canjear */}
-        <button className="secondary-button small-button" onClick={() => onCanjearClick(cliente)}>
-          <FaGift />
-          <span>Canjear</span>
-        </button>
-        <button className="secondary-button small-button">
-          <FaDownload />
-          <span>Descargar Tarjeta</span>
-        </button>
       </div>
     </div>
   );
