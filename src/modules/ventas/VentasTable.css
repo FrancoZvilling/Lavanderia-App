@@ -39,3 +39,10 @@ font-weight: 600;
     width: 100%;
     overflow-x: auto; /* ¡Esta es la línea clave! */
 }
+
+.observaciones-preview {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

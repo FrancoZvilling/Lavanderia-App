@@ -1,12 +1,10 @@
-// Define los posibles estados de un lavado
-export type EstadoLavado = 'En preparación' | 'Listo' | 'Entregado';
+import type { Timestamp } from 'firebase/firestore';
 
-// Define los métodos de pago aceptados
+export type EstadoLavado = 'En preparación' | 'Listo' | 'Entregado';
 export type MetodoDePago = 'Efectivo' | 'Transferencia' | 'Débito' | 'Crédito';
 
-// Interfaz para un Cliente
-export interface Cliente { // <-- ASEGÚRATE DE QUE TENGA 'export'
-  id: number;
+export interface Cliente {
+  id: string; // Ya está como string, ¡perfecto!
   nombre: string;
   apellido: string;
   contacto: string;
@@ -14,35 +12,32 @@ export interface Cliente { // <-- ASEGÚRATE DE QUE TENGA 'export'
   estadoLavado: EstadoLavado;
 }
 
-// Interfaz para un Tipo de Prenda
-export interface TipoDePrenda { // <-- ASEGÚRATE DE QUE TENGA 'export'
-  id: number;
+export interface TipoDePrenda {
+  id: string; // CAMBIO CLAVE: de 'number' a 'string'
   nombre: string;
 }
 
-// Interfaz para una Venta
 export interface Venta {
-  id: number;
-  fecha: Date;
-  // CAMBIO CLAVE: clienteId ahora puede ser un número o nulo
-  clienteId: number | null; 
+  id: string; // CAMBIO CLAVE: de 'number' a 'string'
+  fecha: Timestamp; // CAMBIO CLAVE: de 'Date' a 'Timestamp'
+  clienteId: string | null; // CAMBIO CLAVE: de 'number | null' a 'string | null'
   montoTotal: number;
-  metodoDePago: MetodoDePago; // Asumiremos un método por defecto por ahora
+  metodoDePago: MetodoDePago;
   items: {
-    // Para simplificar, solo guardaremos el nombre de la prenda y la cantidad
-    nombrePrenda: string; 
+    nombrePrenda: string;
     cantidad: number;
   }[];
   observaciones?: string;
 }
 
 // Interfaz para el módulo de Caja
-export interface RegistroCaja { // <-- ASEGÚRATE DE QUE TENGA 'export'
-  id: number;
-  fechaApertura: Date;
+export interface RegistroCaja {
+  id: string;
+  fechaApertura: Timestamp;
   montoInicial: number;
-  fechaCierre?: Date;
-  montoFinal?: number;
+  // CAMBIO CLAVE: Permitimos que fechaCierre sea Timestamp, undefined, O null.
+  fechaCierre?: Timestamp | null;
+  montoFinal?: number | null; // Hacemos lo mismo para montoFinal por consistencia
   ventasDelDia: Venta[];
 }
 
