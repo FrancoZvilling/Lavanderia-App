@@ -7,29 +7,27 @@ interface HistorialCajaTableProps {
 }
 
 const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros }) => {
-  // 1. MODIFICAMOS la firma de la función para aceptar 'null'
   const formatFecha = (fecha?: Timestamp | null) => {
-    // Si la fecha es undefined O null, retornamos 'N/A'
     if (!fecha) return 'N/A';
     return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(fecha.toDate());
   };
 
-  // 2. MODIFICAMOS la firma de la función para aceptar 'null'
   const formatMoneda = (monto?: number | null) => {
-    // Si el monto es undefined O null, retornamos 'N/A'
-    if (monto == null) return 'N/A'; // Usamos '==' para capturar tanto null como undefined
+    if (monto == null) return 'N/A';
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
   };
 
+  // --- CORRECCIÓN CLAVE ---
+  // La función ahora lee el valor pre-calculado y guardado en el registro.
   const calcularTotalVentas = (registro: RegistroCaja) => {
-    // El historial por ahora no calcula las ventas para simplificar.
-    // En una app real, este dato se guardaría al cerrar la caja.
-    return 0;
+    // Si la propiedad 'totalVentas' existe en el registro, la usamos.
+    // Si no (para registros antiguos antes de este cambio), devolvemos 0.
+    return registro.totalVentas || 0;
   };
   
   const calcularArqueo = (registro: RegistroCaja) => {
-    // Si montoFinal es null o undefined, el arqueo es 0
     if (registro.montoFinal == null) return 0;
+    // Ahora esta función usará el total de ventas correcto para el cálculo.
     const totalVentas = calcularTotalVentas(registro);
     return registro.montoFinal - (registro.montoInicial + totalVentas);
   };
@@ -54,6 +52,7 @@ const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros }) =>
         </thead>
         <tbody>
           {registros.map((registro) => {
+            // Estas variables ahora se calculan con los datos correctos del historial
             const totalVentas = calcularTotalVentas(registro);
             const arqueo = calcularArqueo(registro);
             return (
@@ -61,7 +60,6 @@ const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros }) =>
                 <td>{formatFecha(registro.fechaApertura)}</td>
                 <td>{formatMoneda(registro.montoInicial)}</td>
                 <td>{formatMoneda(totalVentas)}</td>
-                {/* Ahora estas llamadas son seguras y no dan error */}
                 <td>{formatFecha(registro.fechaCierre)}</td>
                 <td>{formatMoneda(registro.montoFinal)}</td>
                 <td className={getArqueoClass(arqueo)}>

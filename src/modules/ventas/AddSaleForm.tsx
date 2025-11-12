@@ -2,26 +2,24 @@ import React, { useState } from 'react';
 import Select, { type SingleValue } from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { FaTrash, FaPlus } from 'react-icons/fa';
-import type { Cliente, TipoDePrenda, Venta } from '../../types';
+import type { Cliente, TipoDePrenda, Venta, MetodoDePago } from '../../types';
 import './AddSaleForm.css';
 
-// Interfaz para los ítems DENTRO del formulario. Aún usamos ID numérico para la key de React.
+// Interfaz para los ítems DENTRO del formulario.
 interface VentaItem {
   id: number;
-  tipoPrendaId: string | null; // Cambiado a string
+  tipoPrendaId: string | null;
   cantidad: number;
 }
 
-// Las opciones del selector ahora usan 'string' para el value.
+// Las opciones del selector usan 'string' para el value.
 type SelectOption = { value: string; label: string };
 
 interface AddSaleFormProps {
   clientes: Cliente[];
   tiposDePrenda: TipoDePrenda[];
   onClose: () => void;
-  // La data que pasamos al guardar ya no incluye id ni fecha
   onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha'>) => void;
-  // La creación de prenda ahora es asíncrona
   onCreatePrenda: (nombrePrenda: string) => Promise<TipoDePrenda>;
 }
 
@@ -29,10 +27,12 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [items, setItems] = useState<VentaItem[]>([{ id: Date.now(), tipoPrendaId: null, cantidad: 1 }]);
   const [montoTotal, setMontoTotal] = useState<number>(0);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null); // Cambiado a string
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
+  
+  // Nuevo estado para el método de pago, por defecto 'Efectivo'
+  const [metodoDePago, setMetodoDePago] = useState<MetodoDePago>('Efectivo');
 
-  // Las opciones se mapean con los IDs de tipo string
   const opcionesCliente: SelectOption[] = clientes.map(c => ({ value: c.id, label: `${c.nombre} ${c.apellido}` }));
   const opcionesPrenda: SelectOption[] = tiposDePrenda.map(p => ({ value: p.id, label: p.nombre }));
 
@@ -40,9 +40,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
   const handleRemoveItem = (id: number) => { setItems(items.filter(item => item.id !== id)); };
   const handleItemChange = (id: number, field: keyof VentaItem, value: any) => { setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item)); };
 
-  // Ahora es una función asíncrona para esperar la creación en la DB
   const handleCreateOption = async (inputValue: string, itemId: number) => {
-    // Mostramos un feedback visual mientras se crea
     const prendaSelect = document.querySelector('.prenda-select');
     if (prendaSelect) prendaSelect.classList.add('is-loading');
     
@@ -50,7 +48,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
     
     if (prendaSelect) prendaSelect.classList.remove('is-loading');
     
-    // Solo actualizamos si la creación fue exitosa
     if (!nuevaPrenda.id.startsWith('error-')) {
       handleItemChange(itemId, 'tipoPrendaId', nuevaPrenda.id);
     }
@@ -61,13 +58,12 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
     if (items.some(item => !item.tipoPrendaId || item.cantidad <= 0)) { alert('Por favor, complete todos los campos de las prendas.'); return; }
     if (montoTotal <= 0) { alert('El monto total debe ser mayor a cero.'); return; }
     
-    // Construimos el objeto sin los campos que genera el backend (id, fecha)
     const nuevaVentaData: Omit<Venta, 'id' | 'fecha'> = {
       clienteId: isAnonymous ? null : selectedClientId,
       montoTotal: montoTotal,
-      metodoDePago: 'Efectivo',
+      metodoDePago: metodoDePago, // Usamos el estado seleccionado
       items: items
-        .filter(item => item.tipoPrendaId !== null) // Filtramos items incompletos
+        .filter(item => item.tipoPrendaId !== null)
         .map(item => {
           const prenda = tiposDePrenda.find(p => p.id === item.tipoPrendaId);
           return {
@@ -126,6 +122,27 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
         <label htmlFor="montoTotal">Monto Total del Lavado</label>
         <input type="number" id="montoTotal" placeholder="Ingrese el precio total" value={montoTotal === 0 ? '' : montoTotal} onChange={(e) => setMontoTotal(parseFloat(e.target.value) || 0)} />
       </div>
+
+      {/* Nuevo Selector de Método de Pago */}
+      <div className="form-group">
+        <label>Método de Pago</label>
+        <div className="payment-method-selector">
+          {(['Efectivo', 'Transferencia', 'Débito', 'Crédito'] as MetodoDePago[]).map((metodo) => (
+            <React.Fragment key={metodo}>
+              <input 
+                type="radio" 
+                id={`pay-${metodo}`} 
+                name="paymentMethod" 
+                value={metodo}
+                checked={metodoDePago === metodo}
+                onChange={() => setMetodoDePago(metodo)}
+              />
+              <label htmlFor={`pay-${metodo}`}>{metodo}</label>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
       <div className="total-container">
         <strong>Total:</strong>
         <span> {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(montoTotal)} </span>

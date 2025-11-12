@@ -1,19 +1,54 @@
 .page-container {
     display: flex;
     flex-direction: column;
-    gap: 30px; /* Espacio entre los elementos principales de la página */
+    gap: 30px;
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap; /* Permite que los elementos se ajusten en pantallas pequeñas */
+    gap: 20px;
 }
 
 .page-header h1 {
     margin: 0;
     font-size: 2rem;
     color: var(--color-texto);
+}
+
+/* --- NUEVOS ESTILOS PARA AGRUPAR EL BOTÓN Y EL INDICADOR --- */
+.header-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end; /* Alinea los elementos a la derecha */
+    gap: 8px;
+}
+
+.caja-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.caja-status-indicator.loading {
+  background-color: #f0f0f0;
+  color: #888;
+}
+
+.caja-status-indicator.open {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.caja-status-indicator.closed {
+  background-color: #ffebee;
+  color: #c62828;
 }
 
 /* Estilos de botones genéricos que podemos reutilizar */
@@ -33,7 +68,13 @@
 }
 
 .primary-button:hover {
-    background-color: #2980b9; /* Un azul un poco más oscuro */
+    background-color: #2980b9;
+}
+
+/* Estilo para el botón deshabilitado */
+.primary-button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
 }
 
 .secondary-button {
@@ -59,6 +100,7 @@
     background-color: var(--color-blanco);
     border-radius: 8px;
     box-shadow: var(--sombra-suave);
+    flex-wrap: wrap; /* Para que se ajuste en móvil */
 }
 
 .filter-input {
@@ -69,15 +111,26 @@
     min-width: 200px;
 }
 
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* Adaptación para móvil */
 @media (max-width: 768px) {
-  .page-header, .filters-container {
+  .page-header {
     flex-direction: column;
-    align-items: stretch; /* Ocupan todo el ancho */
+    align-items: center; /* Centramos el H1 y el bloque de acciones */
     gap: 15px;
   }
+  
+  .header-actions {
+    align-items: center; /* Centramos el botón y el indicador */
+  }
 
-  .page-header h1 {
-    font-size: 1.8rem;
-    text-align: center;
+  .filters-container {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

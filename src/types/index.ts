@@ -35,10 +35,10 @@ export interface RegistroCaja {
   id: string;
   fechaApertura: Timestamp;
   montoInicial: number;
-  // CAMBIO CLAVE: Permitimos que fechaCierre sea Timestamp, undefined, O null.
   fechaCierre?: Timestamp | null;
-  montoFinal?: number | null; // Hacemos lo mismo para montoFinal por consistencia
-  ventasDelDia: Venta[];
+  montoFinal?: number | null;
+  totalVentas?: number; // <-- NUEVO CAMPO: Guardará el total de ventas del día
+  ventasDelDia: Venta[]; // Lo seguimos usando para la caja activa
 }
 
 // Interfaz para los Premios del sistema de fidelización

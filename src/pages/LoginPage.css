@@ -69,3 +69,8 @@
   margin-bottom: 15px;
   font-size: 0.9rem;
 }
+
+.login-logo {
+  max-width: 120px; /* Define el tamaño del logo */
+  margin-bottom: 20px; /* Crea un espacio entre el logo y el título */
+}
