@@ -5,14 +5,14 @@ import { FaTrash, FaPlus } from 'react-icons/fa';
 import type { Cliente, TipoDePrenda, Venta, MetodoDePago } from '../../types';
 import './AddSaleForm.css';
 
-// Interfaz para los ítems DENTRO del formulario.
+// --- INTERFAZ MODIFICADA ---
+// 'cantidad' ahora puede ser un número o una cadena vacía para manejar el input.
 interface VentaItem {
   id: number;
   tipoPrendaId: string | null;
-  cantidad: number;
+  cantidad: number | '';
 }
 
-// Las opciones del selector usan 'string' para el value.
 type SelectOption = { value: string; label: string };
 
 interface AddSaleFormProps {
@@ -29,8 +29,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
   const [montoTotal, setMontoTotal] = useState<number>(0);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
-  
-  // Nuevo estado para el método de pago, por defecto 'Efectivo'
   const [metodoDePago, setMetodoDePago] = useState<MetodoDePago>('Efectivo');
 
   const opcionesCliente: SelectOption[] = clientes.map(c => ({ value: c.id, label: `${c.nombre} ${c.apellido}` }));
@@ -38,16 +36,32 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
 
   const handleAddItem = () => { setItems([...items, { id: Date.now(), tipoPrendaId: null, cantidad: 1 }]); };
   const handleRemoveItem = (id: number) => { setItems(items.filter(item => item.id !== id)); };
-  const handleItemChange = (id: number, field: keyof VentaItem, value: any) => { setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item)); };
+
+  // --- LÓGICA DE ACTUALIZACIÓN CORREGIDA ---
+  const handleItemChange = (id: number, field: keyof VentaItem, value: any) => {
+    setItems(items.map(item => {
+      if (item.id === id) {
+        if (field === 'cantidad') {
+          // Si el input está vacío, guardamos una cadena vacía en el estado.
+          if (value === '') {
+            return { ...item, cantidad: '' };
+          }
+          // Si no, intentamos convertirlo a número.
+          const numValue = parseInt(value);
+          // Si no es un número válido (ej. "abc"), lo dejamos como estaba o vacío.
+          // Si es válido, lo guardamos.
+          return { ...item, cantidad: isNaN(numValue) ? '' : numValue };
+        }
+        // Para otros campos (como tipoPrendaId), la lógica no cambia.
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
+  };
 
   const handleCreateOption = async (inputValue: string, itemId: number) => {
-    const prendaSelect = document.querySelector('.prenda-select');
-    if (prendaSelect) prendaSelect.classList.add('is-loading');
-    
+    // La lógica de creación de prenda no cambia
     const nuevaPrenda = await onCreatePrenda(inputValue);
-    
-    if (prendaSelect) prendaSelect.classList.remove('is-loading');
-    
     if (!nuevaPrenda.id.startsWith('error-')) {
       handleItemChange(itemId, 'tipoPrendaId', nuevaPrenda.id);
     }
@@ -55,20 +69,28 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
 
   const handleSave = () => {
     if (!isAnonymous && !selectedClientId) { alert('Por favor, seleccione un cliente.'); return; }
-    if (items.some(item => !item.tipoPrendaId || item.cantidad <= 0)) { alert('Por favor, complete todos los campos de las prendas.'); return; }
+    
+    // --- VALIDACIÓN CORREGIDA ---
+    // Verificamos que 'cantidad' no sea una cadena vacía o un número <= 0.
+    if (items.some(item => !item.tipoPrendaId || item.cantidad === '' || item.cantidad <= 0)) { 
+      alert('Por favor, complete todas las prendas con una cantidad válida.'); 
+      return; 
+    }
+    
     if (montoTotal <= 0) { alert('El monto total debe ser mayor a cero.'); return; }
     
     const nuevaVentaData: Omit<Venta, 'id' | 'fecha'> = {
       clienteId: isAnonymous ? null : selectedClientId,
       montoTotal: montoTotal,
-      metodoDePago: metodoDePago, // Usamos el estado seleccionado
+      metodoDePago: metodoDePago,
       items: items
         .filter(item => item.tipoPrendaId !== null)
         .map(item => {
           const prenda = tiposDePrenda.find(p => p.id === item.tipoPrendaId);
           return {
             nombrePrenda: prenda ? prenda.nombre : 'Desconocido',
-            cantidad: item.cantidad,
+            // Aseguramos que la cantidad se guarde como número
+            cantidad: Number(item.cantidad), 
           };
       }),
       observaciones: observaciones,
@@ -110,7 +132,17 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
                 onCreateOption={(inputValue) => handleCreateOption(inputValue, item.id)}
                 formatCreateLabel={(inputValue) => `Crear "${inputValue}"`}
               />
-              <input type="number" placeholder="Cant." min="1" className="prenda-cantidad" value={item.cantidad} onChange={(e) => handleItemChange(item.id, 'cantidad', parseInt(e.target.value) || 1)} />
+              {/* --- INPUT DE CANTIDAD CORREGIDO --- */}
+              <input 
+                type="number" 
+                placeholder="Cant." 
+                min="1" 
+                className="prenda-cantidad" 
+                // El value ahora es controlado completamente por el estado
+                value={item.cantidad} 
+                // El onChange ahora pasa el valor de la cadena directamente
+                onChange={(e) => handleItemChange(item.id, 'cantidad', e.target.value)} 
+              />
               <button type="button" className="remove-item-btn" onClick={() => handleRemoveItem(item.id)} disabled={items.length <= 1}> <FaTrash /> </button>
             </div>
           ))}
@@ -123,7 +155,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
         <input type="number" id="montoTotal" placeholder="Ingrese el precio total" value={montoTotal === 0 ? '' : montoTotal} onChange={(e) => setMontoTotal(parseFloat(e.target.value) || 0)} />
       </div>
 
-      {/* Nuevo Selector de Método de Pago */}
       <div className="form-group">
         <label>Método de Pago</label>
         <div className="payment-method-selector">
