@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
-import { FaShoppingCart, FaCashRegister, FaUsers, FaSignOutAlt } from 'react-icons/fa';
+// 1. Importamos el nuevo icono 'FaStar'
+import { FaShoppingCart, FaCashRegister, FaUsers, FaSignOutAlt, FaCog } from 'react-icons/fa';
 import HamburgerButton from './HamburgerButton';
 import './Layout.css';
 
@@ -25,7 +26,7 @@ const Layout = () => {
       
       <nav className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <h3>Lavandería PRO</h3>
+          <h3>Administrador</h3>
         </div>
         <ul className="nav-list">
           <li onClick={() => setSidebarOpen(false)}>
@@ -46,10 +47,20 @@ const Layout = () => {
               <span>Clientes</span>
             </NavLink>
           </li>
+          {/* 2. Añadimos el nuevo enlace a la lista de navegación */}
+          <li onClick={() => setSidebarOpen(false)}>
+            <NavLink to="/configuracion">
+              <FaCog />
+              <span>Configuración</span>
+            </NavLink>
+          </li>
         </ul>
         
         {/* Sección del Footer de la Barra Lateral */}
         <div className="sidebar-footer">
+          <div className="developer-credit">
+            Desarrollado por Franco Zvilling
+          </div>
           <button className="logout-button" onClick={handleLogout}>
             <FaSignOutAlt />
             <span>Cerrar Sesión</span>

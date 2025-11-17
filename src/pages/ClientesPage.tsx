@@ -23,21 +23,25 @@ const ClientesPage = () => {
         const clientesCollectionRef = collection(db, 'clientes');
         const querySnapshot = await getDocs(clientesCollectionRef);
         
-        // ---- CORRECCIÓN CLAVE AQUÍ ----
-        // Construimos el objeto de forma explícita para que TypeScript entienda la estructura.
+        // --- CORRECCIÓN CLAVE APLICADA AQUÍ ---
+        // Construimos el objeto de forma explícita, incluyendo los nuevos campos.
         const clientesData = querySnapshot.docs.map(doc => {
           const data = doc.data();
-          return {
+          // Creamos una variable 'cliente' con el tipo explícito para mayor seguridad
+          const cliente: Cliente = {
             id: doc.id,
             nombre: data.nombre,
             apellido: data.apellido,
             contacto: data.contacto,
+            documento: data.documento, // Leemos el DNI del documento de Firebase
+            telefono: data.telefono,   // Leemos el teléfono del documento de Firebase
             puntos: data.puntos,
             estadoLavado: data.estadoLavado,
           };
+          return cliente;
         });
         
-        setClientes(clientesData as Cliente[]);
+        setClientes(clientesData);
         
       } catch (error) {
         console.error("Error al obtener los clientes:", error);
@@ -72,7 +76,6 @@ const ClientesPage = () => {
   const handleUpdateStatus = async (newStatus: EstadoLavado) => {
     if (!clienteSeleccionado) return;
 
-    // Ahora clienteSeleccionado.id es un string, lo cual es correcto para Firestore.
     const clienteDocRef = doc(db, 'clientes', clienteSeleccionado.id);
 
     try {

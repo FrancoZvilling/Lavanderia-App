@@ -4,10 +4,12 @@ export type EstadoLavado = 'En preparación' | 'Listo' | 'Entregado';
 export type MetodoDePago = 'Efectivo' | 'Transferencia' | 'Débito' | 'Crédito';
 
 export interface Cliente {
-  id: string; // Ya está como string, ¡perfecto!
+  id: string;
   nombre: string;
   apellido: string;
-  contacto: string;
+  documento: string; // <-- AÑADIDO (o verificado que exista)
+  contacto: string;   // Sigue siendo el email
+  telefono: string; // <-- AÑADIDO (o verificado que exista)
   puntos: number;
   estadoLavado: EstadoLavado;
 }
@@ -15,6 +17,7 @@ export interface Cliente {
 export interface TipoDePrenda {
   id: string; // CAMBIO CLAVE: de 'number' a 'string'
   nombre: string;
+  precio: number;
 }
 
 export interface Venta {
@@ -30,11 +33,19 @@ export interface Venta {
   observaciones?: string;
 }
 
+export interface Empleado {
+  id: string;
+  nombreCompleto: string;
+}
+
 // Interfaz para el módulo de Caja
 export interface RegistroCaja {
   id: string;
   fechaApertura: Timestamp;
   montoInicial: number;
+  diferenciaApertura?: number;
+  empleadoId: string;
+  empleadoNombre: string;
   fechaCierre?: Timestamp | null;
   montoFinal?: number | null;
   totalVentas?: number; // <-- NUEVO CAMPO: Guardará el total de ventas del día
@@ -42,9 +53,10 @@ export interface RegistroCaja {
 }
 
 // Interfaz para los Premios del sistema de fidelización
-export interface Premio { // <-- ASEGÚRATE DE QUE TENGA 'export'
-  id: number;
+export interface Premio {
+  id: string; // El ID del documento de Firestore
   nombre: string;
   puntosRequeridos: number;
   descripcion: string;
+  activo: boolean; // Para activar o desactivar el premio
 }

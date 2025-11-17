@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-// 1. Separamos la importación del tipo 'Unsubscribe'
-import { collection, query, where, onSnapshot} from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
@@ -31,9 +30,7 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
     const qCajaAbierta = query(collection(db, 'cajas'), where('fechaCierre', '==', null));
     
     const unsubscribeCajas = onSnapshot(qCajaAbierta, (snapshotCajas) => {
-      if (unsubscribeVentas) {
-        unsubscribeVentas();
-      }
+      if (unsubscribeVentas) { unsubscribeVentas(); }
 
       if (snapshotCajas.empty) {
         setCajaActual(null);
@@ -47,10 +44,15 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeVentas = onSnapshot(qVentas, (snapshotVentas) => {
           const ventasData = snapshotVentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
           
+          // --- CORRECCIÓN DEFINITIVA ---
+          // Leemos TODOS los campos del documento de la caja, incluyendo los del empleado.
           const cajaAbiertaCompleta: RegistroCaja = {
             id: cajaAbiertaDoc.id,
             fechaApertura: cajaAbiertaData.fechaApertura,
             montoInicial: cajaAbiertaData.montoInicial,
+            diferenciaApertura: cajaAbiertaData.diferenciaApertura,
+            empleadoId: cajaAbiertaData.empleadoId,
+            empleadoNombre: cajaAbiertaData.empleadoNombre,
             ventasDelDia: ventasData,
             fechaCierre: null,
             montoFinal: null
@@ -66,9 +68,7 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       unsubscribeCajas();
-      if (unsubscribeVentas) {
-        unsubscribeVentas();
-      }
+      if (unsubscribeVentas) { unsubscribeVentas(); }
     };
   }, [currentUser]);
 

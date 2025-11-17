@@ -1,0 +1,91 @@
+.descripcion-premio {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin: 5px 0 0 0;
+}
+.puntos {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-weight: bold;
+  color: white;
+}
+.status-badge.activo { background-color: #27ae60; }
+.status-badge.inactivo { background-color: #95a5a6; }
+.toggle-btn.desactivar { color: #e74c3c; border-color: #e74c3c; }
+.toggle-btn.desactivar:hover { background-color: #ffebee; }
+.toggle-btn.activar { color: #27ae60; border-color: #27ae60; }
+.toggle-btn.activar:hover { background-color: #e8f5e9; }
+
+/* --- MEDIA QUERY CORREGIDA Y MEJORADA --- */
+@media (max-width: 768px) {
+  .premios-table thead {
+    display: none;
+  }
+
+  .premios-table tr {
+    display: block;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    padding: 15px;
+  }
+
+  .premios-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #eee;
+    text-align: right;
+  }
+
+  .premios-table td:last-child {
+    border-bottom: none;
+  }
+  
+  .premios-table td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    text-align: left;
+    margin-right: 15px;
+    color: var(--color-texto);
+  }
+
+  .premios-table td:first-child {
+    display: block;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 10px;
+  }
+  .premios-table td:first-child::before {
+    display: none;
+  }
+  
+  /* --- ESTILOS CORREGIDOS Y AÑADIDOS --- */
+
+  /* Aplicamos el flexbox a los botones, no a la celda entera */
+  .premios-table .acciones > div,
+  .premios-table .acciones > button {
+    flex-grow: 1; /* Hacemos que los botones se repartan el espacio */
+    justify-content: center; /* Centramos el contenido del botón (icono) */
+  }
+
+  /* Ocultamos el texto (que está en un <span>) dentro de los botones de acción */
+  .premios-table .acciones .small-button span {
+    display: none;
+  }
+
+  .premios-table td:first-child strong {
+    color: var(--color-primario);
+    font-size: 1.2rem; /* Hacemos el título un poco más grande */
+  }
+}

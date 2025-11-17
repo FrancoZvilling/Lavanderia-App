@@ -2,14 +2,14 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Spinner from './Spinner';
 
 // 2. Usamos 'ReactNode' en lugar del tipo global 'JSX.Element'
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
-    // Para evitar un "flash" de la pantalla de carga, podemos devolver null o un spinner
-    return <div>Cargando sesión...</div>; 
+    return <Spinner />;
   }
 
   if (!currentUser) {

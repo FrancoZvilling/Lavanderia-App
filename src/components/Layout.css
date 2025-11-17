@@ -1,15 +1,16 @@
 .layout-container {
   display: flex;
-  height: 100vh; /* Ocupa toda la altura de la pantalla */
+  height: 100vh;
 }
 
 .sidebar {
   width: 250px;
   background-color: var(--color-blanco);
   box-shadow: var(--sombra-suave);
+  padding: 20px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: 20px;
 }
 
 .sidebar-header {
@@ -17,6 +18,7 @@
   margin-bottom: 20px;
   border-bottom: 1px solid var(--color-secundario);
   text-align: center;
+  flex-shrink: 0;
 }
 
 .sidebar-header h3 {
@@ -29,12 +31,14 @@
   list-style: none;
   padding: 0;
   margin: 0;
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
 .nav-list li a {
   display: flex;
   align-items: center;
-  gap: 15px; /* Espacio entre icono y texto */
+  gap: 15px;
   padding: 15px;
   text-decoration: none;
   color: var(--color-texto);
@@ -47,58 +51,22 @@
   background-color: var(--color-secundario);
 }
 
-/* Estilo para el link activo */
 .nav-list li a.active {
   background-color: var(--color-primario);
   color: var(--color-blanco);
 }
 
 .main-content {
-  flex-grow: 1; /* Ocupa el resto del espacio */
+  flex-grow: 1;
   padding: 40px;
-  overflow-y: auto; /* Permite scroll si el contenido es largo */
-}
-
-.backdrop {
-  display: none; /* Oculto en escritorio */
-}
-
-/* --- Estilos para Móviles y Tablets --- */
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    height: 100%;
-    z-index: 1100;
-    transform: translateX(-100%); /* Oculto fuera de la pantalla */
-    transition: transform 0.3s ease-in-out;
-    padding-top: 80px; /* Espacio para el botón de hamburguesa */
-  }
-
-  .sidebar.open {
-    transform: translateX(0); /* Lo hacemos visible */
-  }
-
-  .main-content {
-    padding: 20px;
-    padding-top: 80px; /* Dejar espacio para el header fijo del botón */
-  }
-  
-  .backdrop {
-    display: block;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1050; /* Detrás del sidebar, pero encima del contenido */
-  }
+  overflow-y: auto;
 }
 
 .sidebar-footer {
-  margin-top: auto; /* Empuja este elemento al fondo del sidebar */
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-secundario);
+  flex-shrink: 0;
 }
 
 .logout-button {
@@ -119,6 +87,53 @@
 }
 
 .logout-button:hover {
-  background-color: #ffebee; /* Un rojo muy pálido */
+  background-color: #ffebee;
   color: #c0392b;
+}
+
+.backdrop {
+  display: none;
+}
+
+.developer-credit {
+  font-size: 0.8rem; /* Letra pequeña */
+  color: #7f8c8d;   /* Un gris sutil */
+  text-align: center;
+  margin-bottom: 15px; /* Espacio antes del botón de logout */
+}
+
+/* --- Media Query para Móviles --- */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100%;
+    z-index: 1100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+    /* --- CORRECCIÓN CLAVE AQUÍ --- */
+    /* Volvemos a añadir el padding superior para dejar espacio al botón hamburguesa */
+    padding-top: 80px; 
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    padding: 20px;
+    padding-top: 80px;
+  }
+  
+  .backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+  }
 }

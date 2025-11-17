@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, Timestamp, query, where, orderBy, limit, startAfter } from 'firebase/firestore';
+import { collection, getDocs, addDoc, Timestamp, query, where, orderBy, limit, startAfter, increment, getDoc, doc, updateDoc, } from 'firebase/firestore';
 import type { DocumentData, QueryConstraint } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
@@ -24,7 +24,6 @@ const VentasPage = () => {
   
   const [filterClientId, setFilterClientId] = useState<string>('todos');
 
-  // --- CORRECCIÓN 1: Lógica para obtener la fecha local correcta ---
   const today = new Date();
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [filterDate, setFilterDate] = useState<string>(todayString);
@@ -69,7 +68,6 @@ const VentasPage = () => {
       setLastDoc(null);
 
       try {
-        // --- CORRECCIÓN 2: Construcción de fechas en la zona horaria LOCAL ---
         const startOfDay = new Date(`${debouncedFilterDate}T00:00:00`);
         const endOfDay = new Date(`${debouncedFilterDate}T23:59:59.999`);
 
@@ -106,9 +104,7 @@ const VentasPage = () => {
 
     fetchVentas();
 
-    return () => {
-      isCancelled = true;
-    };
+    return () => { isCancelled = true; };
   }, [debouncedFilterDate, debouncedFilterClientId]);
 
   const handleLoadMore = async () => {
@@ -116,7 +112,6 @@ const VentasPage = () => {
     setLoadingMore(true);
     
     try {
-      // --- CORRECCIÓN 3: Aplicamos la misma lógica de fechas aquí ---
       const startOfDay = new Date(`${debouncedFilterDate}T00:00:00`);
       const endOfDay = new Date(`${debouncedFilterDate}T23:59:59.999`);
 
@@ -150,38 +145,53 @@ const VentasPage = () => {
   };
   
   const handleSaveVenta = async (nuevaVentaData: Omit<Venta, 'id' | 'fecha'>) => {
+    const clienteId = nuevaVentaData.clienteId;
     try {
       const ventaConFecha = { ...nuevaVentaData, fecha: Timestamp.fromDate(new Date()) };
-      const docRef = await addDoc(collection(db, 'ventas'), ventaConFecha);
-      const ventaGuardada = { id: docRef.id, ...ventaConFecha } as Venta;
+      await addDoc(collection(db, 'ventas'), ventaConFecha);
       
-      const today = new Date().toISOString().split('T')[0];
-      if (filterDate === today && (filterClientId === 'todos' || filterClientId === ventaGuardada.clienteId)) {
-        setVentas(prevVentas => [ventaGuardada, ...prevVentas].sort((a, b) => b.fecha.toMillis() - a.fecha.toMillis()));
+      if (clienteId) {
+        const clienteDocRef = doc(db, 'clientes', clienteId);
+        
+        const updates: { [key: string]: any } = {
+          estadoLavado: 'En preparación'
+        };
+
+        const configDocRef = doc(db, 'configuracion', 'puntos');
+        const configSnapshot = await getDoc(configDocRef);
+        
+        if (configSnapshot.exists()) {
+          const { puntosOtorgados, montoRequerido } = configSnapshot.data();
+          if (montoRequerido > 0) {
+            const unidades = nuevaVentaData.montoTotal / montoRequerido;
+            const puntosGanados = Math.floor(unidades * puntosOtorgados);
+
+            if (puntosGanados > 0) {
+              updates.puntos = increment(puntosGanados);
+              toast.info(`${puntosGanados} puntos sumados al cliente.`);
+            }
+          }
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(clienteDocRef, updates);
+        }
+
+        setClientes(prevClientes => prevClientes.map(c => 
+          c.id === clienteId ? { ...c, estadoLavado: 'En preparación' } : c
+        ));
       }
-      
+
       setIsAddModalOpen(false);
       toast.success("Venta registrada con éxito.");
     } catch (error) {
-      console.error("Error al guardar la venta:", error);
+      console.error("Error al guardar venta o actualizar cliente:", error);
       toast.error("No se pudo registrar la venta.");
     }
   };
   
-  const handleCreatePrenda = async (nombrePrenda: string) => {
-    try {
-      const docRef = await addDoc(collection(db, 'tiposDePrenda'), { nombre: nombrePrenda });
-      const nuevaPrenda = { id: docRef.id, nombre: nombrePrenda };
-      setTiposDePrenda(prevPrendas => [...prevPrendas, nuevaPrenda]);
-      toast.info(`Nueva prenda "${nombrePrenda}" creada.`);
-      return nuevaPrenda;
-    } catch (error) {
-      console.error("Error al crear la prenda:", error);
-      toast.error("No se pudo crear la nueva prenda.");
-      return { id: 'error-' + Date.now(), nombre: nombrePrenda };
-    }
-  };
-
+  // --- FUNCIÓN handleCreatePrenda ELIMINADA ---
+  
   const handleOpenDetailsModal = (venta: Venta) => { setVentaSeleccionada(venta); setIsDetailsModalOpen(true); };
   const handleCloseDetailsModal = () => { setIsDetailsModalOpen(false); setVentaSeleccionada(null); };
 
@@ -247,7 +257,8 @@ const VentasPage = () => {
       }
       
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Registrar Nueva Venta">
-        <AddSaleForm clientes={clientes} tiposDePrenda={tiposDePrenda} onClose={() => setIsAddModalOpen(false)} onSave={handleSaveVenta} onCreatePrenda={handleCreatePrenda} />
+        {/* --- PROP 'onCreatePrenda' ELIMINADA --- */}
+        <AddSaleForm clientes={clientes} tiposDePrenda={tiposDePrenda} onClose={() => setIsAddModalOpen(false)} onSave={handleSaveVenta} />
       </Modal>
       
       {ventaSeleccionada && (

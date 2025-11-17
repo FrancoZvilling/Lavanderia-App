@@ -1,16 +1,57 @@
-/* Usaremos los mismos estilos de la tabla de ventas, pero añadimos estilos para el arqueo */
+/* Estilos para los colores del arqueo */
+.arqueo-ok { color: #27ae60; font-weight: bold; }
+.arqueo-faltante { color: #e74c3c; font-weight: bold; }
+.arqueo-sobrante { color: #f39c12; font-weight: bold; }
+.fecha-principal strong { font-size: 1.1rem; }
 
-.arqueo-ok {
-    color: #27ae60; /* Verde */
+/* --- MEDIA QUERY PARA TRANSFORMAR LA TABLA A TARJETAS EN MÓVIL --- */
+@media (max-width: 768px) {
+  .caja-table {
+    overflow-x: hidden; /* Desactivamos el scroll horizontal */
+  }
+
+  .caja-table thead {
+    display: none; /* Ocultamos encabezados */
+  }
+
+  .caja-table tr {
+    display: block; /* Cada fila es una tarjeta */
+    background-color: var(--color-blanco);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    padding: 15px;
+    box-shadow: var(--sombra-suave);
+  }
+  
+  .caja-table td {
+    display: block; /* Cada celda es una fila dentro de la tarjeta */
+    padding: 8px 0;
+    text-align: right; /* Alineamos contenido a la derecha */
+    border-bottom: 1px solid #eee;
+  }
+
+  .caja-table td:last-child {
+    border-bottom: none; /* Sin línea en la última celda */
+  }
+
+  /* Creamos la etiqueta a la izquierda */
+  .caja-table td::before {
+    content: attr(data-label); /* Tomamos el texto del atributo data-label */
+    float: left; /* Lo ponemos a la izquierda */
     font-weight: bold;
+    color: var(--color-texto);
+  }
+
+  /* Estilos especiales para la fecha de apertura como título */
+  .caja-table td.encargado-principal {
+  text-align: left;
+  font-size: 1.2rem;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--color-secundario);
+  margin-bottom: 10px;
 }
-
-.arqueo-faltante {
-    color: #e74c3c; /* Rojo */
-    font-weight: bold;
+.caja-table td.encargado-principal::before {
+  display: none;
 }
-
-.arqueo-sobrante {
-    color: #f39c12; /* Naranja */
-    font-weight: bold;
 }

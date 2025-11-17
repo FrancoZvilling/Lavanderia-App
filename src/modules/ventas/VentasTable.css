@@ -1,48 +1,73 @@
-.table-container {
-background-color: var(--color-blanco);
-border-radius: 8px;
-box-shadow: var(--sombra-suave);
-overflow: hidden; /* Para que el borde redondeado afecte a la tabla */
-width: 100%;
-}
-table {
-width: 100%;
-border-collapse: collapse; /* Une los bordes de las celdas */
-}
-th, td {
-padding: 15px 20px;
-text-align: left;
-border-bottom: 1px solid var(--color-secundario);
-}
-thead tr {
-background-color: var(--color-secundario);
-}
-th {
-font-weight: 600;
-color: var(--color-primario);
-}
-tbody tr:last-child td {
-border-bottom: none; /* Elimina la última línea para un look más limpio */
-}
-tbody tr:hover {
-background-color: #f1f5f9; /* Un gris muy sutil al pasar el mouse */
-}
-.monto {
-font-weight: 600;
-}
-
+/* Estilos generales para la tabla */
 .table-container {
     background-color: var(--color-blanco);
     border-radius: 8px;
     box-shadow: var(--sombra-suave);
-    overflow: hidden;
+    overflow-x: auto; /* Mantenemos el scroll horizontal como fallback */
     width: 100%;
-    overflow-x: auto; /* ¡Esta es la línea clave! */
 }
 
-.observaciones-preview {
-  max-width: 200px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 15px 20px; text-align: left; border-bottom: 1px solid var(--color-secundario); }
+thead tr { background-color: var(--color-secundario); }
+th { font-weight: 600; color: var(--color-primario); }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background-color: #f1f5f9; }
+.monto { font-weight: 600; }
+.observaciones-preview { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cliente-principal strong { font-size: 1.1rem; }
+
+/* --- MEDIA QUERY PARA TRANSFORMAR LA TABLA A TARJETAS EN MÓVIL --- */
+@media (max-width: 768px) {
+  .ventas-table {
+    overflow-x: hidden; /* Desactivamos el scroll horizontal en móvil */
+  }
+
+  .ventas-table thead {
+    display: none; /* Ocultamos los encabezados de la tabla */
+  }
+
+  .ventas-table tr {
+    display: block; /* Cada fila se comporta como una tarjeta */
+    background-color: var(--color-blanco);
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    padding: 15px;
+    box-shadow: var(--sombra-suave);
+  }
+  
+  .ventas-table td {
+    display: block; /* Cada celda es una fila dentro de la tarjeta */
+    padding: 8px 0;
+    text-align: right; /* Alineamos el contenido a la derecha */
+    border-bottom: 1px solid #eee;
+  }
+
+  .ventas-table td:last-child {
+    border-bottom: none; /* Sin línea en la última celda */
+    padding-top: 15px;
+    text-align: center; /* Centramos el botón de acciones */
+  }
+
+  /* La magia de los labels: creamos la etiqueta a la izquierda */
+  .ventas-table td::before {
+    content: attr(data-label); /* Tomamos el texto del atributo data-label */
+    float: left; /* Lo ponemos a la izquierda */
+    font-weight: bold;
+    color: var(--color-texto);
+  }
+
+  /* Estilos especiales para la primera fila (Cliente) para que actúe como título */
+  .ventas-table td.cliente-principal {
+    text-align: left;
+    font-size: 1.2rem;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--color-secundario);
+    margin-bottom: 10px;
+  }
+
+  .ventas-table td.cliente-principal::before {
+    display: none; /* No necesitamos el label "Cliente" en el título */
+  }
 }

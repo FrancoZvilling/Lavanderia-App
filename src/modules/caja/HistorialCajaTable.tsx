@@ -9,7 +9,10 @@ interface HistorialCajaTableProps {
 const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros }) => {
   const formatFecha = (fecha?: Timestamp | null) => {
     if (!fecha) return 'N/A';
-    return new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(fecha.toDate());
+    return fecha.toDate().toLocaleString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
   };
 
   const formatMoneda = (monto?: number | null) => {
@@ -17,54 +20,57 @@ const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros }) =>
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
   };
 
-  // --- CORRECCIÓN CLAVE ---
-  // La función ahora lee el valor pre-calculado y guardado en el registro.
   const calcularTotalVentas = (registro: RegistroCaja) => {
-    // Si la propiedad 'totalVentas' existe en el registro, la usamos.
-    // Si no (para registros antiguos antes de este cambio), devolvemos 0.
     return registro.totalVentas || 0;
   };
   
   const calcularArqueo = (registro: RegistroCaja) => {
     if (registro.montoFinal == null) return 0;
-    // Ahora esta función usará el total de ventas correcto para el cálculo.
     const totalVentas = calcularTotalVentas(registro);
     return registro.montoFinal - (registro.montoInicial + totalVentas);
   };
   
-  const getArqueoClass = (arqueo: number) => {
-    if (arqueo === 0) return 'arqueo-ok';
-    return arqueo > 0 ? 'arqueo-sobrante' : 'arqueo-faltante';
+  const getArqueoClass = (valor: number) => {
+    if (valor === 0) return 'arqueo-ok';
+    return valor > 0 ? 'arqueo-sobrante' : 'arqueo-faltante';
   }
 
   return (
-    <div className="table-container">
+    <div className="table-container caja-table">
       <table>
         <thead>
           <tr>
+            {/* --- 1. NUEVA COLUMNA --- */}
+            <th>Encargado</th>
             <th>Fecha Apertura</th>
             <th>Monto Inicial</th>
+            <th>Dif. Apertura</th>
             <th>Total Ventas</th>
-            <th>Fecha Cierre</th>
             <th>Monto Final</th>
             <th>Arqueo</th>
+            <th>Fecha Cierre</th>
           </tr>
         </thead>
         <tbody>
           {registros.map((registro) => {
-            // Estas variables ahora se calculan con los datos correctos del historial
-            const totalVentas = calcularTotalVentas(registro);
             const arqueo = calcularArqueo(registro);
             return (
               <tr key={registro.id}>
-                <td>{formatFecha(registro.fechaApertura)}</td>
-                <td>{formatMoneda(registro.montoInicial)}</td>
-                <td>{formatMoneda(totalVentas)}</td>
-                <td>{formatFecha(registro.fechaCierre)}</td>
-                <td>{formatMoneda(registro.montoFinal)}</td>
-                <td className={getArqueoClass(arqueo)}>
+                {/* --- 2. NUEVA CELDA (ahora es la principal en móvil) --- */}
+                <td data-label="Encargado" className="encargado-principal">
+                  <strong>{registro.empleadoNombre || 'No definido'}</strong>
+                </td>
+                <td data-label="Apertura">{formatFecha(registro.fechaApertura)}</td>
+                <td data-label="Monto Inicial">{formatMoneda(registro.montoInicial)}</td>
+                <td data-label="Dif. Apertura" className={getArqueoClass(registro.diferenciaApertura || 0)}>
+                  {formatMoneda(registro.diferenciaApertura || 0)}
+                </td>
+                <td data-label="Total Ventas">{formatMoneda(registro.totalVentas || 0)}</td>
+                <td data-label="Monto Final">{formatMoneda(registro.montoFinal)}</td>
+                <td data-label="Arqueo" className={getArqueoClass(arqueo)}>
                   {formatMoneda(arqueo)}
                 </td>
+                <td data-label="Cierre">{formatFecha(registro.fechaCierre)}</td>
               </tr>
             );
           })}

@@ -1,0 +1,46 @@
+/* src/pages/FidelizacionPage.css */
+
+.config-section {
+  background-color: var(--color-blanco);
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: var(--sombra-suave);
+  margin-bottom: 30px;
+}
+.config-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--color-secundario);
+  padding-bottom: 10px;
+}
+.config-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap; /* Permite que se ajuste si no hay espacio */
+  gap: 15px;
+  font-size: 1.1rem;
+}
+.config-form input {
+  width: 80px;
+  padding: 8px;
+  font-size: 1.1rem;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+.premios-section .page-header {
+  margin-bottom: 20px;
+}
+
+/* --- MEDIA QUERY PARA MÓVILES --- */
+@media (max-width: 768px) {
+  .config-form {
+    flex-direction: column; /* Apila los elementos verticalmente */
+    align-items: stretch; /* Ocupan todo el ancho */
+  }
+
+  .config-form input {
+    width: 100%; /* El input ocupa todo el ancho disponible */
+    box-sizing: border-box;
+  }
+}

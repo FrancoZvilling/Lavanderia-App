@@ -10,7 +10,7 @@ import HistorialCajaTable from '../modules/caja/HistorialCajaTable';
 import AbrirCajaForm from '../modules/caja/AbrirCajaForm';
 import CerrarCajaForm from '../modules/caja/CerrarCajaForm';
 import Modal from '../components/Modal';
-import type { RegistroCaja } from '../types';
+import type { RegistroCaja, Empleado } from '../types';
 import './VentasPage.css';
 
 const PAGE_SIZE_CAJA = 15;
@@ -24,7 +24,6 @@ const CajaPage = () => {
   const [historialCajas, setHistorialCajas] = useState<RegistroCaja[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
   
-  // --- CORRECCIÓN 1: Lógica para obtener la fecha local correcta ---
   const today = new Date();
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [filterDateCaja, setFilterDateCaja] = useState<string>(todayString);
@@ -34,19 +33,21 @@ const CajaPage = () => {
   const [lastDocCaja, setLastDocCaja] = useState<DocumentData | null>(null);
   const [hasMoreCaja, setHasMoreCaja] = useState(true);
   const [loadingMoreCaja, setLoadingMoreCaja] = useState(false);
+  
+  const [montoCierreAnterior, setMontoCierreAnterior] = useState<number | null>(null);
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
 
   useEffect(() => {
     let isCancelled = false;
-
     const fetchHistorial = async () => {
       if (!debouncedFilterDateCaja) return;
       
       setLoadingHistorial(true);
       setHistorialCajas([]);
       setLastDocCaja(null);
+      setHasMoreCaja(true);
 
       try {
-        // --- CORRECCIÓN 2: Construcción de fechas en la zona horaria LOCAL ---
         const startOfDay = new Date(`${debouncedFilterDateCaja}T00:00:00`);
         const endOfDay = new Date(`${debouncedFilterDateCaja}T23:59:59.999`);
 
@@ -68,6 +69,9 @@ const CajaPage = () => {
               id: doc.id,
               fechaApertura: data.fechaApertura,
               montoInicial: data.montoInicial,
+              diferenciaApertura: data.diferenciaApertura,
+              empleadoId: data.empleadoId,
+              empleadoNombre: data.empleadoNombre,
               fechaCierre: data.fechaCierre,
               montoFinal: data.montoFinal,
               totalVentas: data.totalVentas,
@@ -79,7 +83,6 @@ const CajaPage = () => {
           if (historialSnapshot.docs.length < PAGE_SIZE_CAJA) {
             setHasMoreCaja(false);
           } else {
-            setHasMoreCaja(true);
             setLastDocCaja(historialSnapshot.docs[historialSnapshot.docs.length - 1]);
           }
         }
@@ -94,23 +97,41 @@ const CajaPage = () => {
         }
       }
     };
-
     fetchHistorial();
-
-    return () => {
-      isCancelled = true;
-    };
+    return () => { isCancelled = true; };
   }, [debouncedFilterDateCaja]);
+
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const qCierre = query(collection(db, 'cajas'), where('fechaCierre', '!=', null), orderBy('fechaCierre', 'desc'), limit(1));
+        const ultimoCierreSnapshot = await getDocs(qCierre);
+        if (!ultimoCierreSnapshot.empty) {
+          const ultimoCierreDoc = ultimoCierreSnapshot.docs[0].data();
+          setMontoCierreAnterior(ultimoCierreDoc.montoFinal ?? null);
+        } else {
+          setMontoCierreAnterior(null);
+        }
+      } catch (error) { console.error("Error al obtener el último cierre de caja:", error); }
+
+      try {
+        const qEmpleados = query(collection(db, 'empleados'), orderBy('nombreCompleto'));
+        const empleadosSnapshot = await getDocs(qEmpleados);
+        setEmpleados(empleadosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Empleado)));
+      } catch (error) {
+        console.error("Error al obtener empleados:", error);
+        toast.error("No se pudo cargar la lista de empleados.");
+      }
+    };
+    fetchInitialData();
+  }, [cajaActual]);
 
   const handleLoadMoreCaja = async () => {
     if (!lastDocCaja || loadingMoreCaja) return;
     setLoadingMoreCaja(true);
-
     try {
-        // --- CORRECCIÓN 3: Aplicamos la misma lógica de fechas aquí ---
         const startOfDay = new Date(`${debouncedFilterDateCaja}T00:00:00`);
         const endOfDay = new Date(`${debouncedFilterDateCaja}T23:59:59.999`);
-
         const q = query(
           collection(db, 'cajas'),
           where('fechaCierre', '!=', null),
@@ -120,23 +141,24 @@ const CajaPage = () => {
           startAfter(lastDocCaja),
           limit(PAGE_SIZE_CAJA)
         );
-
         const historialSnapshot = await getDocs(q);
         const nuevoHistorial = historialSnapshot.docs.map(doc => {
             const data = doc.data();
-            return {
+            const registro: RegistroCaja = {
                 id: doc.id,
                 fechaApertura: data.fechaApertura,
                 montoInicial: data.montoInicial,
+                diferenciaApertura: data.diferenciaApertura,
+                empleadoId: data.empleadoId,
+                empleadoNombre: data.empleadoNombre,
                 fechaCierre: data.fechaCierre,
                 montoFinal: data.montoFinal,
                 totalVentas: data.totalVentas,
                 ventasDelDia: [],
-            } as RegistroCaja;
+            };
+            return registro;
         });
-        
         setHistorialCajas(prev => [...prev, ...nuevoHistorial]);
-
         if (historialSnapshot.docs.length < PAGE_SIZE_CAJA) {
             setHasMoreCaja(false);
         } else {
@@ -150,11 +172,19 @@ const CajaPage = () => {
     }
   };
 
-  const handleAbrirCaja = async (montoInicial: number) => {
+  const handleAbrirCaja = async (montoInicial: number, empleado: { id: string; nombre: string } | null) => {
+    if (!empleado) {
+      toast.error("Debe seleccionar un empleado.");
+      return;
+    }
     try {
+      const diferencia = montoCierreAnterior !== null ? montoInicial - montoCierreAnterior : 0;
       await addDoc(collection(db, 'cajas'), {
         montoInicial,
         fechaApertura: Timestamp.fromDate(new Date()),
+        diferenciaApertura: diferencia,
+        empleadoId: empleado.id,
+        empleadoNombre: empleado.nombre,
         fechaCierre: null,
         montoFinal: null,
         totalVentas: 0,
@@ -181,16 +211,22 @@ const CajaPage = () => {
         totalVentas: totalVentasDelDia,
       });
 
-      const cajaCerrada: RegistroCaja = { ...cajaActual, montoFinal, fechaCierre: fechaDeCierre, totalVentas: totalVentasDelDia, ventasDelDia: [] };
+      const cajaCerrada: RegistroCaja = { 
+        ...cajaActual, 
+        montoFinal, 
+        fechaCierre: fechaDeCierre, 
+        totalVentas: totalVentasDelDia, 
+        ventasDelDia: [] 
+      };
       
-      // --- CORRECCIÓN 4: Usamos la fecha local para la comparación ---
       const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
       const fechaCerradaStr = `${fechaCerradaLocal.getFullYear()}-${String(fechaCerradaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaCerradaLocal.getDate()).padStart(2, '0')}`;
       
       if (fechaCerradaStr === filterDateCaja) {
-          setHistorialCajas(prev => [cajaCerrada, ...prev].sort((a,b) => b.fechaCierre!.toMillis() - a.fechaCierre!.toMillis()));
+        setHistorialCajas(prev => [cajaCerrada, ...prev].sort((a,b) => b.fechaCierre!.toMillis() - a.fechaCierre!.toMillis()));
       }
       
+      setMontoCierreAnterior(montoFinal);
       setIsCerrarModalOpen(false);
       toast.success("Caja cerrada con éxito.");
     } catch (error) {
@@ -222,7 +258,6 @@ const CajaPage = () => {
               value={filterDateCaja}
               onChange={(e) => setFilterDateCaja(e.target.value)}
             />
-            {/* --- CORRECCIÓN 5: Usamos todayString para el botón "Hoy" --- */}
             <button className="secondary-button" onClick={() => setFilterDateCaja(todayString)}>Hoy</button>
           </div>
         </header>
@@ -242,7 +277,12 @@ const CajaPage = () => {
         )}
       </div>
       <Modal isOpen={isAbrirModalOpen} onClose={() => setIsAbrirModalOpen(false)} title="Abrir Caja">
-        <AbrirCajaForm onClose={() => setIsAbrirModalOpen(false)} onConfirm={handleAbrirCaja} />
+        <AbrirCajaForm 
+            onClose={() => setIsAbrirModalOpen(false)} 
+            onConfirm={handleAbrirCaja}
+            montoCierreAnterior={montoCierreAnterior}
+            empleados={empleados}
+        />
       </Modal>
       {cajaActual && (
         <Modal isOpen={isCerrarModalOpen} onClose={() => setIsCerrarModalOpen(false)} title="Cerrar Caja">

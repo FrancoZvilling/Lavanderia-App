@@ -1,15 +1,14 @@
-import React from 'react';
 import type { Cliente, EstadoLavado } from '../../types';
-import { FaPhone, FaEnvelope, FaEdit } from 'react-icons/fa';
+// 1. Importamos el nuevo icono para el DNI
+import { FaPhone, FaEdit, FaIdCard } from 'react-icons/fa';
 import './ClientCard.css';
 
 interface ClientCardProps {
   cliente: Cliente;
-  onStatusChangeClick: (cliente: Cliente) => void; // 1. Nueva prop
+  onStatusChangeClick: (cliente: Cliente) => void;
 }
 
 const ClientCard: React.FC<ClientCardProps> = ({ cliente, onStatusChangeClick }) => {
-  // ... (función getStatusClass sigue igual)
   const getStatusClass = (estado: EstadoLavado) => {
     switch (estado) {
       case 'En preparación': return 'status-preparacion';
@@ -23,22 +22,29 @@ const ClientCard: React.FC<ClientCardProps> = ({ cliente, onStatusChangeClick })
     <div className="client-card">
       <div className="card-header">
         <h3>{cliente.nombre} {cliente.apellido}</h3>
-        {/* 2. El div ahora es clickeable y llama a la función de la prop */}
         <div 
           className={`status-badge ${getStatusClass(cliente.estadoLavado)}`}
           onClick={() => onStatusChangeClick(cliente)}
-          title="Cambiar estado" // Mejora la accesibilidad
+          title="Cambiar estado"
         >
           {cliente.estadoLavado}
           <FaEdit className="edit-icon" />
         </div>
       </div>
-      {/* ... (el resto de la tarjeta sigue igual) ... */}
+
       <div className="card-body">
+        {/* 2. Mostramos el DNI */}
         <div className="contact-info">
-          {cliente.contacto.includes('@') ? <FaEnvelope /> : <FaPhone />}
-          <span>{cliente.contacto}</span>
+          <FaIdCard />
+          <span>DNI: {cliente.documento || 'No especificado'}</span>
         </div>
+
+        {/* 3. Mostramos el Teléfono en lugar del 'contacto' (email) */}
+        <div className="contact-info">
+          <FaPhone />
+          <span>{cliente.telefono || 'No especificado'}</span>
+        </div>
+        
         <div className="points-info">
           <span>Puntos de Fidelidad</span>
           <strong>{cliente.puntos.toLocaleString('es-AR')} pts</strong>
