@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { RegistroCaja, MetodoDePago } from '../../types';
+import type { RegistroCaja} from '../../types';
 import '../ventas/AddSaleForm.css';
 import './CerrarCajaForm.css';
 

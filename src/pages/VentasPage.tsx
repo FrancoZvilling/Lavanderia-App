@@ -144,8 +144,7 @@ const VentasPage = () => {
     }
   };
   
-  const handleSaveVenta = async (nuevaVentaData: Omit<Venta, 'id' | 'fecha'>) => {
-    // 1. VERIFICAMOS PRIMERO si hay una caja abierta
+  const handleSaveVenta = async (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId'>) => {
     if (!cajaActual) {
       toast.error("No se puede registrar una venta porque la caja está cerrada.");
       return;
@@ -154,18 +153,14 @@ const VentasPage = () => {
     const clienteId = nuevaVentaData.clienteId;
 
     try {
-      // 2. AÑADIMOS el 'cajaId' al objeto de la venta
-      const ventaConFechaYIdCaja = { 
+      const ventaConDatosCompletos = { 
         ...nuevaVentaData, 
         fecha: Timestamp.fromDate(new Date()),
-        cajaId: cajaActual.id, // <-- CORRECCIÓN CRÍTICA
+        cajaId: cajaActual.id,
       };
       
-      await addDoc(collection(db, 'ventas'), ventaConFechaYIdCaja);
+      await addDoc(collection(db, 'ventas'), ventaConDatosCompletos);
       
-      // La actualización de la UI ahora es manejada por el listener del CajaContext.
-      // Ya no necesitamos 'setVentas' aquí.
-
       if (clienteId) {
         const clienteDocRef = doc(db, 'clientes', clienteId);
         const updates: { [key: string]: any } = { estadoLavado: 'En preparación' };
@@ -174,9 +169,12 @@ const VentasPage = () => {
         const configSnapshot = await getDoc(configDocRef);
         
         if (configSnapshot.exists()) {
+          // --- FÓRMULA DE CÁLCULO CORREGIDA ---
           const { puntosOtorgados, montoRequerido } = configSnapshot.data();
-          if (montoRequerido > 0) {
-            const puntosGanados = Math.floor(nuevaVentaData.montoTotal / montoRequerido);
+          if (puntosOtorgados && montoRequerido > 0) {
+            const unidades = nuevaVentaData.montoTotal / montoRequerido;
+            const puntosGanados = Math.floor(unidades * puntosOtorgados);
+
             if (puntosGanados > 0) {
               updates.puntos = increment(puntosGanados);
               toast.info(`${puntosGanados} puntos sumados al cliente.`);
@@ -188,6 +186,7 @@ const VentasPage = () => {
           await updateDoc(clienteDocRef, updates);
         }
 
+        // Actualizamos el estado local para que el cambio de 'estadoLavado' se vea al instante
         setClientes(prevClientes => prevClientes.map(c => 
           c.id === clienteId ? { ...c, estadoLavado: 'En preparación' } : c
         ));

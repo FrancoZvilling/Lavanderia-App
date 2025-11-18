@@ -12,12 +12,12 @@ interface VentaItem {
 
 type SelectOption = { value: string; label: string };
 
+// --- CORRECCIÓN: La firma de onSave ahora excluye 'cajaId' ---
 interface AddSaleFormProps {
   clientes: Cliente[];
   tiposDePrenda: TipoDePrenda[];
   onClose: () => void;
-  onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha'>) => void;
-  // La prop 'onCreatePrenda' ha sido eliminada
+  onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId'>) => void;
 }
 
 const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onClose, onSave }) => {
@@ -28,14 +28,11 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
   const [observaciones, setObservaciones] = useState('');
   const [metodoDePago, setMetodoDePago] = useState<MetodoDePago>('Efectivo');
   
-  // --- NUEVO ESTADO PARA EL MODO MANUAL ---
   const [isManualAmount, setIsManualAmount] = useState<boolean>(false);
 
-  // Opciones con precio en la etiqueta para mayor claridad
   const opcionesCliente: SelectOption[] = clientes.map(c => ({ value: c.id, label: `${c.nombre} ${c.apellido}` }));
   const opcionesPrenda: SelectOption[] = tiposDePrenda.map(p => ({ value: p.id, label: `${p.nombre} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(p.precio)})` }));
 
-  // --- useEffect PARA EL CÁLCULO AUTOMÁTICO ---
   useEffect(() => {
     if (!isManualAmount) {
       const totalCalculado = items.reduce((sum, item) => {
@@ -72,7 +69,8 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
     if (items.some(item => !item.tipoPrendaId || item.cantidad === '' || item.cantidad <= 0)) { alert('Por favor, complete todas las prendas con una cantidad válida.'); return; }
     if (montoTotal <= 0) { alert('El monto total debe ser mayor a cero.'); return; }
     
-    const nuevaVentaData: Omit<Venta, 'id' | 'fecha'> = {
+    // --- CORRECCIÓN: El tipo del objeto ahora coincide con la nueva firma de onSave ---
+    const nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId'> = {
       clienteId: isAnonymous ? null : selectedClientId,
       montoTotal: montoTotal,
       metodoDePago: metodoDePago,
@@ -113,7 +111,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
         <div className="items-container">
           {items.map((item) => (
             <div className="prenda-item-row" key={item.id}>
-              {/* --- SELECTOR DE PRENDAS ACTUALIZADO (NO CREABLE) --- */}
               <Select
                 options={opcionesPrenda}
                 placeholder="Seleccione una prenda..."
@@ -137,7 +134,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
         <button type="button" className="add-item-btn" onClick={handleAddItem}> <FaPlus /> <span>Añadir otra prenda</span> </button>
       </div>
 
-      {/* --- NUEVA CASILLA PARA INGRESO MANUAL --- */}
       <div className="form-group-inline">
         <input 
           type="checkbox" 
@@ -150,14 +146,13 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
 
       <div className="form-group">
         <label htmlFor="montoTotal">Monto Total del Lavado</label>
-        {/* --- INPUT DE MONTO TOTAL CONDICIONALMENTE DESHABILITADO --- */}
         <input 
           type="number" 
           id="montoTotal" 
           placeholder={isManualAmount ? "Ingrese el precio total" : "Calculado automáticamente"}
           value={montoTotal === 0 ? '' : montoTotal} 
           onChange={(e) => setMontoTotal(parseFloat(e.target.value) || 0)} 
-          disabled={!isManualAmount} // Clave: se deshabilita si NO es manual
+          disabled={!isManualAmount}
         />
       </div>
 
