@@ -25,7 +25,7 @@ const ConfiguracionPage = () => {
   const [isPrendaModalOpen, setIsPrendaModalOpen] = useState(false);
   const [editingPrenda, setEditingPrenda] = useState<TipoDePrenda | null>(null);
   const [isEmpleadoModalOpen, setIsEmpleadoModalOpen] = useState(false);
-  const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null); // Estado para el empleado a editar
+  const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
 
   const [puntosOtorgados, setPuntosOtorgados] = useState<string>('');
   const [montoRequerido, setMontoRequerido] = useState<string>('');
@@ -61,7 +61,47 @@ const ConfiguracionPage = () => {
     fetchConfigData();
   }, []);
 
-  // --- LÓGICA COMPLETA PARA GESTIONAR EMPLEADOS ---
+  // --- LÓGICA PARA GESTIONAR PRENDAS ---
+  const handleOpenPrendaModal = (prenda: TipoDePrenda | null = null) => {
+    setEditingPrenda(prenda);
+    setIsPrendaModalOpen(true);
+  };
+  const handleClosePrendaModal = () => {
+    setIsPrendaModalOpen(false);
+    setEditingPrenda(null);
+  };
+  const handleSavePrenda = async (prendaData: Omit<TipoDePrenda, 'id'>, id?: string) => {
+    try {
+      if (id) {
+        await updateDoc(doc(db, 'tiposDePrenda', id), prendaData);
+        setTiposDePrenda(tiposDePrenda.map(p => p.id === id ? { id, ...prendaData } : p).sort((a, b) => a.nombre.localeCompare(b.nombre)));
+        toast.success("Prenda actualizada.");
+      } else {
+        const docRef = await addDoc(collection(db, 'tiposDePrenda'), prendaData);
+        const nuevaPrenda = { ...prendaData, id: docRef.id };
+        setTiposDePrenda([...tiposDePrenda, nuevaPrenda].sort((a,b) => a.nombre.localeCompare(b.nombre)));
+        toast.success("Prenda creada.");
+      }
+      handleClosePrendaModal();
+    } catch (error) { 
+      console.error("Error al guardar prenda:", error);
+      toast.error("Error al guardar la prenda.");
+    }
+  };
+  const handleDeletePrenda = async (prenda: TipoDePrenda) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar la prenda "${prenda.nombre}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'tiposDePrenda', prenda.id));
+        setTiposDePrenda(tiposDePrenda.filter(p => p.id !== prenda.id));
+        toast.success("Prenda eliminada con éxito.");
+      } catch (error) {
+        console.error("Error al eliminar la prenda:", error);
+        toast.error("No se pudo eliminar la prenda.");
+      }
+    }
+  };
+
+  // --- LÓGICA PARA GESTIONAR EMPLEADOS ---
   const handleOpenEmpleadoModal = (empleado: Empleado | null = null) => {
     setEditingEmpleado(empleado);
     setIsEmpleadoModalOpen(true);
@@ -72,71 +112,53 @@ const ConfiguracionPage = () => {
   };
   const handleSaveEmpleado = async (nombreCompleto: string, id?: string) => {
     try {
-      if (id) { // Editando un empleado existente
+      if (id) {
         await updateDoc(doc(db, 'empleados', id), { nombreCompleto });
         setEmpleados(empleados.map(e => e.id === id ? { ...e, nombreCompleto } : e).sort((a,b) => a.nombreCompleto.localeCompare(b.nombreCompleto)));
-        toast.success("Empleado actualizado con éxito.");
-      } else { // Creando un nuevo empleado
+        toast.success("Empleado actualizado.");
+      } else {
         const docRef = await addDoc(collection(db, 'empleados'), { nombreCompleto });
         const nuevoEmpleado = { id: docRef.id, nombreCompleto };
         setEmpleados([...empleados, nuevoEmpleado].sort((a,b) => a.nombreCompleto.localeCompare(b.nombreCompleto)));
-        toast.success("Empleado añadido con éxito.");
+        toast.success("Empleado añadido.");
       }
       handleCloseEmpleadoModal();
     } catch (error) { toast.error("Error al guardar el empleado."); }
   };
   const handleDeleteEmpleado = async (empleado: Empleado) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${empleado.nombreCompleto}? Esta acción no se puede deshacer.`)) {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${empleado.nombreCompleto}?`)) {
       try {
         await deleteDoc(doc(db, 'empleados', empleado.id));
         setEmpleados(empleados.filter(e => e.id !== empleado.id));
-        toast.success("Empleado eliminado con éxito.");
+        toast.success("Empleado eliminado.");
       } catch (error) {
         toast.error("Error al eliminar el empleado.");
       }
     }
   };
   
-  // --- Lógica para prendas ---
-  const handleOpenPrendaModal = (prenda: TipoDePrenda | null = null) => { setEditingPrenda(prenda); setIsPrendaModalOpen(true); };
-  const handleClosePrendaModal = () => { setIsPrendaModalOpen(false); setEditingPrenda(null); };
-  const handleSavePrenda = async (prendaData: Omit<TipoDePrenda, 'id'>, id?: string) => {
-    try {
-      if (id) {
-        const prendaDocRef = doc(db, 'tiposDePrenda', id);
-        await updateDoc(prendaDocRef, prendaData);
-        setTiposDePrenda(tiposDePrenda.map(p => p.id === id ? { id, ...prendaData } : p).sort((a, b) => a.nombre.localeCompare(b.nombre)));
-        toast.success("Prenda actualizada con éxito.");
-      } else {
-        const docRef = await addDoc(collection(db, 'tiposDePrenda'), prendaData);
-        const nuevaPrenda = { ...prendaData, id: docRef.id };
-        setTiposDePrenda([...tiposDePrenda, nuevaPrenda].sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        toast.success("Prenda creada con éxito.");
-      }
-      handleClosePrendaModal();
-    } catch (error) { 
-      console.error("Error al guardar prenda:", error);
-      toast.error("Error al guardar la prenda."); 
-    }
+  // --- LÓGICA PARA GESTIONAR PREMIOS ---
+  const handleOpenPremioModal = (premio: Premio | null = null) => {
+    setEditingPremio(premio);
+    setIsPremioModalOpen(true);
   };
-  
-  // --- Lógica para premios ---
-  const handleOpenModal = (premio: Premio | null = null) => { setEditingPremio(premio); setIsPremioModalOpen(true); };
-  const handleCloseModal = () => { setIsPremioModalOpen(false); setEditingPremio(null); };
+  const handleClosePremioModal = () => {
+    setIsPremioModalOpen(false);
+    setEditingPremio(null);
+  };
   const handleSavePremio = async (premioData: Omit<Premio, 'id' | 'activo'>, id?: string) => {
     try {
       if (id) {
-        const premioDocRef = doc(db, 'premios', id);
-        await updateDoc(premioDocRef, premioData);
+        await updateDoc(doc(db, 'premios', id), premioData);
         setPremios(premios.map(p => p.id === id ? { ...p, ...premioData } : p).sort((a,b) => a.puntosRequeridos - b.puntosRequeridos));
-        toast.success("Premio actualizado con éxito.");
+        toast.success("Premio actualizado.");
       } else {
         const docRef = await addDoc(collection(db, 'premios'), { ...premioData, activo: true });
         const nuevoPremio = { ...premioData, id: docRef.id, activo: true };
         setPremios([...premios, nuevoPremio].sort((a,b) => a.puntosRequeridos - b.puntosRequeridos));
-        toast.success("Premio creado con éxito.");
+        toast.success("Premio creado.");
       }
-      handleCloseModal();
+      handleClosePremioModal();
     } catch (error) { toast.error("Error al guardar el premio."); }
   };
   const handleToggleActive = async (premio: Premio) => {
@@ -148,22 +170,21 @@ const ConfiguracionPage = () => {
     } catch (error) { toast.error("No se pudo cambiar el estado del premio."); }
   };
 
-  // --- Lógica para reglas de puntos ---
+  // --- LÓGICA PARA REGLAS DE PUNTOS ---
   const handleSaveConfig = async () => {
     const puntosNum = parseInt(puntosOtorgados, 10);
     const montoNum = parseFloat(montoRequerido);
     if (isNaN(puntosNum) || puntosNum <= 0 || isNaN(montoNum) || montoNum <= 0) {
-      toast.error("Por favor, ingrese valores numéricos válidos en ambos campos.");
+      toast.error("Por favor, ingrese valores válidos en ambos campos.");
       return;
     }
     setLoadingConfig(true);
     try {
-      const configDocRef = doc(db, 'configuracion', 'puntos');
-      await updateDoc(configDocRef, { 
+      await updateDoc(doc(db, 'configuracion', 'puntos'), { 
         puntosOtorgados: puntosNum,
         montoRequerido: montoNum,
       });
-      toast.success("Regla de puntos actualizada con éxito.");
+      toast.success("Regla de puntos actualizada.");
     } catch (error) {
       toast.error("No se pudo actualizar la regla de puntos.");
     } finally {
@@ -184,7 +205,11 @@ const ConfiguracionPage = () => {
             <FaPlus /> Añadir Nueva Prenda
           </button>
         </header>
-        <PrendasTable prendas={tiposDePrenda} onEdit={handleOpenPrendaModal} />
+        <PrendasTable 
+          prendas={tiposDePrenda} 
+          onEdit={handleOpenPrendaModal}
+          onDelete={handleDeletePrenda}
+        />
       </section>
       
       <section className="config-section">
@@ -218,11 +243,11 @@ const ConfiguracionPage = () => {
       <section className="config-section">
         <header className="page-header">
           <h3>Gestión de Premios</h3>
-          <button className="primary-button" onClick={() => handleOpenModal()}>
+          <button className="primary-button" onClick={() => handleOpenPremioModal()}>
             <FaPlus /> Añadir Nuevo Premio
           </button>
         </header>
-        <PremiosTable premios={premios} onEdit={handleOpenModal} onToggleActive={handleToggleActive} />
+        <PremiosTable premios={premios} onEdit={handleOpenPremioModal} onToggleActive={handleToggleActive} />
       </section>
 
       <Modal isOpen={isPrendaModalOpen} onClose={handleClosePrendaModal} title={editingPrenda ? 'Editar Prenda' : 'Nueva Prenda'}>
@@ -231,8 +256,8 @@ const ConfiguracionPage = () => {
       <Modal isOpen={isEmpleadoModalOpen} onClose={handleCloseEmpleadoModal} title={editingEmpleado ? 'Editar Empleado' : 'Nuevo Empleado'}>
         <EmpleadoFormModal onClose={handleCloseEmpleadoModal} onSave={handleSaveEmpleado} empleadoInicial={editingEmpleado} />
       </Modal>
-      <Modal isOpen={isPremioModalOpen} onClose={handleCloseModal} title={editingPremio ? 'Editar Premio' : 'Nuevo Premio'}>
-        <PremioFormModal onClose={handleCloseModal} onSave={handleSavePremio} premioInicial={editingPremio} />
+      <Modal isOpen={isPremioModalOpen} onClose={handleClosePremioModal} title={editingPremio ? 'Editar Premio' : 'Nuevo Premio'}>
+        <PremioFormModal onClose={handleClosePremioModal} onSave={handleSavePremio} premioInicial={editingPremio} />
       </Modal>
     </div>
   );

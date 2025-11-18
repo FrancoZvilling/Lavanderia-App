@@ -48,7 +48,11 @@ export interface RegistroCaja {
   empleadoNombre: string;
   fechaCierre?: Timestamp | null;
   montoFinal?: number | null;
-  totalVentas?: number; // <-- NUEVO CAMPO: Guardará el total de ventas del día
+  totalVentas?: number; 
+  totalEfectivo?: number;
+  totalTransferencia?: number;
+  totalDebito?: number;       
+  totalCredito?: number; 
   ventasDelDia: Venta[]; // Lo seguimos usando para la caja activa
 }
 

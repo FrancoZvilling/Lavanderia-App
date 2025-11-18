@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import type { RegistroCaja } from '../../types';
-import './../ventas/AddSaleForm.css'; // Reutilizamos estilos
-import './CerrarCajaForm.css'; // Y añadimos unos nuevos
+import { useState, useMemo } from 'react';
+import type { RegistroCaja, MetodoDePago } from '../../types';
+import '../ventas/AddSaleForm.css';
+import './CerrarCajaForm.css';
 
 interface CerrarCajaFormProps {
   caja: RegistroCaja;
@@ -10,20 +10,38 @@ interface CerrarCajaFormProps {
 }
 
 const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfirm }) => {
-  const [montoFinal, setMontoFinal] = useState('');
+  const [montoFinalContado, setMontoFinalContado] = useState('');
 
-  // Usamos useMemo para evitar recalcular en cada render
-  const { totalVentas, esperadoEnCaja, arqueo } = useMemo(() => {
-    const montoFinalNum = parseFloat(montoFinal) || 0;
-    const totalVentas = caja.ventasDelDia.reduce((sum, v) => sum + v.montoTotal, 0);
-    const esperadoEnCaja = caja.montoInicial + totalVentas;
-    const arqueo = montoFinalNum - esperadoEnCaja;
-    return { totalVentas, esperadoEnCaja, arqueo };
-  }, [caja, montoFinal]);
+  // --- LÓGICA DE CÁLCULO ACTUALIZADA ---
+  const { ingresosTotales, ingresosEnEfectivo, esperadoEnCaja, arqueo } = useMemo(() => {
+    const montoFinalNum = parseFloat(montoFinalContado) || 0;
+    
+    // Calcula el total de todas las ventas, sin importar el método de pago
+    const totalGeneral = caja.ventasDelDia.reduce((sum, v) => sum + v.montoTotal, 0);
+    
+    // Filtra y suma únicamente las ventas en efectivo
+    const totalEfectivo = caja.ventasDelDia
+      .filter(v => v.metodoDePago === 'Efectivo')
+      .reduce((sum, v) => sum + v.montoTotal, 0);
+
+    // El esperado en caja es el monto inicial más solo el efectivo
+    const esperado = caja.montoInicial + totalEfectivo;
+    
+    // El arqueo es la diferencia entre lo contado y lo esperado en efectivo
+    const diferencia = montoFinalNum - esperado;
+    
+    return { 
+      ingresosTotales: totalGeneral, 
+      ingresosEnEfectivo: totalEfectivo, 
+      esperadoEnCaja: esperado, 
+      arqueo: diferencia 
+    };
+  }, [caja, montoFinalContado]);
 
   const handleSubmit = () => {
-    const montoFinalNum = parseFloat(montoFinal);
+    const montoFinalNum = parseFloat(montoFinalContado);
     if (!isNaN(montoFinalNum) && montoFinalNum >= 0) {
+      // Pasamos el monto final contado al padre para guardarlo
       onConfirm(montoFinalNum);
     } else {
       alert('Por favor, ingrese un monto final válido.');
@@ -35,30 +53,39 @@ const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfir
 
   return (
     <form className="add-sale-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+      {/* Muestra un resumen de los ingresos totales del día */}
       <div className="summary-grid">
-        <div>Monto Inicial:</div>
+        <div className="summary-total">Ingresos Totales del Día:</div>
+        <div className="summary-total">{formatMoneda(ingresosTotales)}</div>
+      </div>
+      
+      <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '20px 0' }} />
+
+      {/* Muestra el desglose para el arqueo de EFECTIVO */}
+      <div className="summary-grid">
+        <div>Monto Inicial (Efectivo):</div>
         <div>{formatMoneda(caja.montoInicial)}</div>
-        <div>Total de Ventas:</div>
-        <div>{formatMoneda(totalVentas)}</div>
-        <div className="summary-total">Total Esperado en Caja:</div>
+        <div>+ Ingresos en Efectivo:</div>
+        <div>{formatMoneda(ingresosEnEfectivo)}</div>
+        <div className="summary-total">Total Esperado en Caja (Efectivo):</div>
         <div className="summary-total">{formatMoneda(esperadoEnCaja)}</div>
       </div>
 
       <div className="form-group">
-        <label htmlFor="montoFinal">Monto Final Contado</label>
+        <label htmlFor="montoFinal">Monto Final Contado (Efectivo)</label>
         <input
           type="number"
           id="montoFinal"
           placeholder="Ingrese el dinero contado en caja"
-          value={montoFinal}
-          onChange={(e) => setMontoFinal(e.target.value)}
+          value={montoFinalContado}
+          onChange={(e) => setMontoFinalContado(e.target.value)}
           autoFocus
         />
       </div>
 
-      {montoFinal && (
+      {montoFinalContado && (
         <div className="summary-grid arqueo-section">
-          <div className="summary-total">Arqueo (Diferencia):</div>
+          <div className="summary-total">Arqueo (Diferencia de Efectivo):</div>
           <div className={`summary-total ${getArqueoClass(arqueo)}`}>
             {formatMoneda(arqueo)}
           </div>

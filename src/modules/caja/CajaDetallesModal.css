@@ -1,0 +1,37 @@
+.caja-detalles-container {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.detalle-seccion h4 {
+  margin: 0 0 15px 0;
+  color: var(--color-primario);
+  border-bottom: 2px solid var(--color-secundario);
+  padding-bottom: 10px;
+}
+
+.detalles-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.detalles-table td {
+  padding: 10px 5px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detalles-table td:last-child {
+  text-align: right;
+  font-weight: 500;
+}
+
+.fila-total td {
+  border-top: 2px solid var(--color-texto);
+  border-bottom: none;
+  font-size: 1.1rem;
+}
+
+.detalle-seccion p {
+  margin: 5px 0;
+}

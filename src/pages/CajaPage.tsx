@@ -9,8 +9,9 @@ import CajaActual from '../modules/caja/CajaActual';
 import HistorialCajaTable from '../modules/caja/HistorialCajaTable';
 import AbrirCajaForm from '../modules/caja/AbrirCajaForm';
 import CerrarCajaForm from '../modules/caja/CerrarCajaForm';
+import CajaDetallesModal from '../modules/caja/CajaDetallesModal';
 import Modal from '../components/Modal';
-import type { RegistroCaja, Empleado } from '../types';
+import type { RegistroCaja, Empleado, MetodoDePago } from '../types';
 import './VentasPage.css';
 
 const PAGE_SIZE_CAJA = 15;
@@ -20,6 +21,8 @@ const CajaPage = () => {
   
   const [isAbrirModalOpen, setIsAbrirModalOpen] = useState(false);
   const [isCerrarModalOpen, setIsCerrarModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroCaja | null>(null);
 
   const [historialCajas, setHistorialCajas] = useState<RegistroCaja[]>([]);
   const [loadingHistorial, setLoadingHistorial] = useState(true);
@@ -75,6 +78,10 @@ const CajaPage = () => {
               fechaCierre: data.fechaCierre,
               montoFinal: data.montoFinal,
               totalVentas: data.totalVentas,
+              totalEfectivo: data.totalEfectivo,
+              totalTransferencia: data.totalTransferencia,
+              totalDebito: data.totalDebito,
+              totalCredito: data.totalCredito,
               ventasDelDia: [],
             } as RegistroCaja;
           });
@@ -154,6 +161,10 @@ const CajaPage = () => {
                 fechaCierre: data.fechaCierre,
                 montoFinal: data.montoFinal,
                 totalVentas: data.totalVentas,
+                totalEfectivo: data.totalEfectivo,
+                totalTransferencia: data.totalTransferencia,
+                totalDebito: data.totalDebito,
+                totalCredito: data.totalCredito,
                 ventasDelDia: [],
             };
             return registro;
@@ -188,6 +199,10 @@ const CajaPage = () => {
         fechaCierre: null,
         montoFinal: null,
         totalVentas: 0,
+        totalEfectivo: 0,
+        totalTransferencia: 0,
+        totalDebito: 0,
+        totalCredito: 0,
       });
       setIsAbrirModalOpen(false);
       toast.success("Caja abierta con éxito.");
@@ -200,39 +215,63 @@ const CajaPage = () => {
   const handleCerrarCaja = async (montoFinal: number) => {
     if (!cajaActual) return;
     
-    const totalVentasDelDia = cajaActual.ventasDelDia.reduce((sum, v) => sum + v.montoTotal, 0);
+    const subtotales = cajaActual.ventasDelDia.reduce((acc, venta) => {
+        acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
+        return acc;
+    }, { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 } as Record<MetodoDePago, number>);
+
+    const totalVentasDelDia = Object.values(subtotales).reduce((sum, current) => sum + current, 0);
+
     const cajaDocRef = doc(db, 'cajas', cajaActual.id);
     const fechaDeCierre = Timestamp.fromDate(new Date());
 
     try {
-      await updateDoc(cajaDocRef, {
-        montoFinal,
-        fechaCierre: fechaDeCierre,
-        totalVentas: totalVentasDelDia,
-      });
+        await updateDoc(cajaDocRef, {
+            montoFinal,
+            fechaCierre: fechaDeCierre,
+            totalVentas: totalVentasDelDia,
+            totalEfectivo: subtotales.Efectivo,
+            totalTransferencia: subtotales.Transferencia,
+            totalDebito: subtotales.Débito,
+            totalCredito: subtotales.Crédito,
+        });
 
-      const cajaCerrada: RegistroCaja = { 
-        ...cajaActual, 
-        montoFinal, 
-        fechaCierre: fechaDeCierre, 
-        totalVentas: totalVentasDelDia, 
-        ventasDelDia: [] 
-      };
-      
-      const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
-      const fechaCerradaStr = `${fechaCerradaLocal.getFullYear()}-${String(fechaCerradaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaCerradaLocal.getDate()).padStart(2, '0')}`;
-      
-      if (fechaCerradaStr === filterDateCaja) {
-        setHistorialCajas(prev => [cajaCerrada, ...prev].sort((a,b) => b.fechaCierre!.toMillis() - a.fechaCierre!.toMillis()));
-      }
-      
-      setMontoCierreAnterior(montoFinal);
-      setIsCerrarModalOpen(false);
-      toast.success("Caja cerrada con éxito.");
+        const cajaCerrada: RegistroCaja = { 
+            ...cajaActual, 
+            montoFinal, 
+            fechaCierre: fechaDeCierre, 
+            totalVentas: totalVentasDelDia,
+            totalEfectivo: subtotales.Efectivo,
+            totalTransferencia: subtotales.Transferencia,
+            totalDebito: subtotales.Débito,
+            totalCredito: subtotales.Crédito,
+            ventasDelDia: [] 
+        };
+        
+        const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
+        const fechaCerradaStr = `${fechaCerradaLocal.getFullYear()}-${String(fechaCerradaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaCerradaLocal.getDate()).padStart(2, '0')}`;
+        
+        if (fechaCerradaStr === filterDateCaja) {
+            setHistorialCajas(prev => [cajaCerrada, ...prev].sort((a,b) => b.fechaCierre!.toMillis() - a.fechaCierre!.toMillis()));
+        }
+        
+        setMontoCierreAnterior(montoFinal);
+        setIsCerrarModalOpen(false);
+        toast.success("Caja cerrada con éxito.");
     } catch (error) {
-      console.error("Error al cerrar caja:", error);
-      toast.error("No se pudo cerrar la caja.");
+        console.error("Error al cerrar caja:", error);
+        toast.error("No se pudo cerrar la caja.");
     }
+  };
+
+  const handleOpenDetailsModal = (registro: RegistroCaja) => {
+    setRegistroSeleccionado(registro);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setIsDetailsModalOpen(false);
+    setRegistroSeleccionado(null);
   };
   
   if (loadingCaja) {
@@ -263,7 +302,10 @@ const CajaPage = () => {
         </header>
         {loadingHistorial ? 
             <p style={{textAlign: 'center'}}>Cargando historial del día...</p> 
-            : <HistorialCajaTable registros={historialCajas} />
+            : <HistorialCajaTable 
+                registros={historialCajas}
+                onVerDetalles={handleOpenDetailsModal}
+              />
         }
         {historialCajas.length === 0 && !loadingHistorial &&
             <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay registros de caja para la fecha seleccionada.</p>
@@ -287,6 +329,15 @@ const CajaPage = () => {
       {cajaActual && (
         <Modal isOpen={isCerrarModalOpen} onClose={() => setIsCerrarModalOpen(false)} title="Cerrar Caja">
           <CerrarCajaForm caja={cajaActual} onClose={() => setIsCerrarModalOpen(false)} onConfirm={handleCerrarCaja} />
+        </Modal>
+      )}
+      {registroSeleccionado && (
+        <Modal 
+          isOpen={isDetailsModalOpen} 
+          onClose={handleCloseDetailsModal} 
+          title={`Detalle de Caja - ${new Date(registroSeleccionado.fechaApertura.toDate()).toLocaleDateString('es-AR')}`}
+        >
+          <CajaDetallesModal registro={registroSeleccionado} />
         </Modal>
       )}
     </div>

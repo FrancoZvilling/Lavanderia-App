@@ -1,16 +1,16 @@
 import type { TipoDePrenda } from '../../types';
-import { FaEdit } from 'react-icons/fa';
-// Importamos el CSS de la tabla de premios para reutilizar sus estilos responsivos
+// 1. Importamos el icono de basura
+import { FaEdit, FaTrash } from 'react-icons/fa';
 import '../fidelizacion/PremiosTable.css';
 
 interface PrendasTableProps {
   prendas: TipoDePrenda[];
   onEdit: (prenda: TipoDePrenda) => void;
+  onDelete: (prenda: TipoDePrenda) => void; // 2. Añadimos la nueva prop para la eliminación
 }
 
-const PrendasTable: React.FC<PrendasTableProps> = ({ prendas, onEdit }) => {
+const PrendasTable: React.FC<PrendasTableProps> = ({ prendas, onEdit, onDelete }) => {
   return (
-    // Añadimos la clase 'premios-table' para que herede los estilos de tarjeta
     <div className="table-container premios-table">
       <table>
         <thead>
@@ -28,6 +28,10 @@ const PrendasTable: React.FC<PrendasTableProps> = ({ prendas, onEdit }) => {
               <td data-label="Acciones" className="acciones">
                 <button className="secondary-button small-button" onClick={() => onEdit(prenda)}>
                   <FaEdit /> <span>Editar</span>
+                </button>
+                {/* 3. AÑADIMOS EL NUEVO BOTÓN DE ELIMINAR */}
+                <button className="secondary-button small-button toggle-btn desactivar" onClick={() => onDelete(prenda)}>
+                  <FaTrash /> <span>Eliminar</span>
                 </button>
               </td>
             </tr>

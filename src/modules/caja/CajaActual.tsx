@@ -30,23 +30,26 @@ const CajaActual: React.FC<CajaActualProps> = ({ caja, onAbrirCaja, onCerrarCaja
     );
   }
 
-  // --- NUEVA LÓGICA ---
-  // Calculamos los subtotales por método de pago.
-  // useMemo asegura que este cálculo solo se rehace si la lista de ventas cambia.
-  const subtotales = useMemo(() => {
-    const inicial = { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 };
-    if (!caja.ventasDelDia) return inicial;
+  // --- LÓGICA DE CÁLCULO ACTUALIZADA Y MEJORADA ---
+  const { ingresosTotales, ingresosEnEfectivo, subtotales } = useMemo(() => {
+    const subtotalesIniciales = { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 };
+    if (!caja.ventasDelDia || caja.ventasDelDia.length === 0) {
+      return { ingresosTotales: 0, ingresosEnEfectivo: 0, subtotales: subtotalesIniciales };
+    }
 
-    return caja.ventasDelDia.reduce((acc, venta) => {
-      // Sumamos el monto de la venta al método de pago correspondiente
+    const subtotalesCalculados = caja.ventasDelDia.reduce((acc, venta) => {
       acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
       return acc;
-    }, inicial as Record<MetodoDePago, number>);
+    }, subtotalesIniciales as Record<MetodoDePago, number>);
+
+    const total = Object.values(subtotalesCalculados).reduce((sum, current) => sum + current, 0);
+    const efectivo = subtotalesCalculados.Efectivo;
+
+    return { ingresosTotales: total, ingresosEnEfectivo: efectivo, subtotales: subtotalesCalculados };
   }, [caja.ventasDelDia]);
 
-  // La lógica para el total de ventas y el esperado en caja sigue igual
-  const totalVentas = caja.ventasDelDia.reduce((sum, v) => sum + v.montoTotal, 0);
-  const esperadoEnCaja = caja.montoInicial + totalVentas;
+  // El esperado en caja ahora se calcula solo con el efectivo
+  const esperadoEnCaja = caja.montoInicial + ingresosEnEfectivo;
 
   return (
     <div className="caja-card abierta">
@@ -57,38 +60,43 @@ const CajaActual: React.FC<CajaActualProps> = ({ caja, onAbrirCaja, onCerrarCaja
           <span>Cerrar Caja</span>
         </button>
       </div>
-      <div className="caja-details">
+      
+      {/* --- WIDGETS PRINCIPALES ACTUALIZADOS --- */}
+      <div className="caja-details four-columns">
         <div>
           <span>Monto Inicial</span>
           <strong>{formatMoneda(caja.montoInicial)}</strong>
         </div>
         <div>
-          <span>Ventas del Día</span>
-          <strong>{formatMoneda(totalVentas)}</strong>
+          <span>Ingresos en Efectivo</span>
+          <strong>{formatMoneda(ingresosEnEfectivo)}</strong>
         </div>
         <div>
-          <span>Esperado en Caja</span>
-          <strong>{formatMoneda(esperadoEnCaja)}</strong>
+          <span>Ingresos Totales (Día)</span>
+          <strong>{formatMoneda(ingresosTotales)}</strong>
+        </div>
+        <div>
+          <span>Esperado en Caja (Efectivo)</span>
+          <strong className="esperado-total">{formatMoneda(esperadoEnCaja)}</strong>
         </div>
       </div>
-
-      {/* --- NUEVA SECCIÓN JSX --- */}
-      {/* Mostramos los subtotales calculados */}
+      
+      {/* --- WIDGETS SECUNDARIOS (DESGLOSE) --- */}
       <div className="caja-subtotals">
         <div className="subtotal-item">
-          <span>Ingresos en Efectivo</span>
+          <span>Detalle Efectivo</span>
           <strong>{formatMoneda(subtotales.Efectivo)}</strong>
         </div>
         <div className="subtotal-item">
-          <span>Ingresos por Transferencia</span>
+          <span>Detalle Transferencia</span>
           <strong>{formatMoneda(subtotales.Transferencia)}</strong>
         </div>
         <div className="subtotal-item">
-          <span>Ingresos por Débito</span>
+          <span>Detalle Débito</span>
           <strong>{formatMoneda(subtotales.Débito)}</strong>
         </div>
         <div className="subtotal-item">
-          <span>Ingresos por Crédito</span>
+          <span>Detalle Crédito</span>
           <strong>{formatMoneda(subtotales.Crédito)}</strong>
         </div>
       </div>

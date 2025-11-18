@@ -1,4 +1,4 @@
-/* --- Estilos Base (Mobile First) --- */
+/* === ESTILOS BASE (MOBILE FIRST) === */
 
 .caja-card {
     background-color: var(--color-blanco);
@@ -6,30 +6,22 @@
     box-shadow: var(--sombra-suave);
     padding: 20px;
     display: flex;
-    /* En móvil, los elementos se apilan verticalmente */
-    flex-direction: column; 
-    align-items: stretch; /* Ocupan todo el ancho */
+    flex-direction: column;
+    align-items: stretch;
     gap: 20px;
 }
 
 .caja-card.cerrada {
     border-left: 5px solid #e74c3c;
-    text-align: center; /* Centramos el texto en móvil */
+    text-align: center;
 }
 
 .caja-card.abierta {
     border-left: 5px solid #27ae60;
 }
 
-.caja-info h2 {
-    margin-top: 0;
-    margin-bottom: 10px;
-}
-
-.caja-info p {
-    margin: 0;
-    color: #7f8c8d;
-}
+.caja-info h2 { margin-top: 0; margin-bottom: 10px; }
+.caja-info p { margin: 0; color: #7f8c8d; }
 
 .open-caja-btn {
     font-size: 1.1rem;
@@ -37,46 +29,14 @@
 }
 
 /* --- Estilos para la Caja Abierta --- */
-
 .caja-header {
     display: flex;
-    /* En móvil, el título y el botón se apilan */
-    flex-direction: column;
+    flex-direction: column; /* Apilado en móvil */
     align-items: flex-start;
     gap: 15px;
     width: 100%;
 }
-
-.caja-header h2 {
-    margin: 0;
-}
-
-.caja-details {
-    display: grid;
-    /* En móvil, mostramos una sola columna */
-    grid-template-columns: 1fr;
-    gap: 15px;
-    text-align: center;
-}
-
-.caja-details div {
-    background-color: var(--color-secundario);
-    padding: 20px;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-}
-
-.caja-details span {
-    color: var(--color-texto);
-    margin-bottom: 10px;
-    font-size: 0.9rem;
-}
-
-.caja-details strong {
-    font-size: 1.8rem;
-    color: var(--color-primario);
-}
+.caja-header h2 { margin: 0; }
 
 .primary-button-danger {
     display: flex;
@@ -91,78 +51,85 @@
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.3s;
-    /* Hacemos que ocupe todo el ancho disponible en móvil */
-    justify-content: center;
+    justify-content: center; /* Centrado en móvil */
+    width: 100%; /* Ocupa todo el ancho en móvil */
+    box-sizing: border-box;
 }
+.primary-button-danger:hover { background-color: #c0392b; }
 
-.primary-button-danger:hover {
-    background-color: #c0392b;
+/* -- LAYOUT DE WIDGETS PRINCIPALES -- */
+.caja-details {
+    display: grid;
+    grid-template-columns: 1fr; /* Una sola columna en móvil */
+    gap: 15px;
+    text-align: center;
 }
+.caja-details div {
+    background-color: var(--color-secundario);
+    padding: 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+}
+.caja-details span { color: var(--color-texto); margin-bottom: 10px; font-size: 0.9rem; }
+.caja-details strong { font-size: 1.8rem; color: var(--color-primario); }
+.esperado-total { color: #2980b9 !important; }
 
+/* -- LAYOUT DE SUBTOTALES -- */
 .caja-subtotals {
-  display: grid;
-  /* Crea 4 columnas en escritorio y se adapta a 2 en tablet y 1 en móvil */
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 15px;
-  margin-top: 20px;
-  border-top: 2px solid var(--color-secundario);
-  padding-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Dos columnas en móvil */
+    gap: 15px;
+    margin-top: 20px;
+    border-top: 2px solid var(--color-secundario);
+    padding-top: 20px;
 }
-
 .subtotal-item {
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 15px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
 }
+.subtotal-item span { font-size: 0.9rem; color: #7f8c8d; margin-bottom: 5px; }
+.subtotal-item strong { font-size: 1.4rem; color: var(--color-texto); }
 
-.subtotal-item span {
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  margin-bottom: 5px;
-}
+/* === MEDIA QUERIES PARA PANTALLAS MÁS GRANDES === */
 
-.subtotal-item strong {
-  font-size: 1.4rem;
-  color: var(--color-texto);
-}
-
-
-/* --- Media Query para Escritorio (Tablet y más grandes) --- */
+/* Tablets y Escritorios Pequeños (min-width: 768px) */
 @media (min-width: 768px) {
-    .caja-card {
-        /* En escritorio, la tarjeta cerrada vuelve a ser horizontal */
+    .caja-card.cerrada {
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
         text-align: left;
     }
-    
-    .caja-card.abierta {
-        /* La tarjeta abierta mantiene su dirección vertical, pero alineamos diferente */
-        flex-direction: column;
-        align-items: stretch;
-    }
-
     .caja-header {
-        /* El header de la caja abierta vuelve a ser horizontal */
         flex-direction: row;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 25px;
+        margin-bottom: 0;
     }
-
-    .caja-details {
-        /* La grilla de detalles vuelve a tener 3 columnas */
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-    }
-    
     .primary-button-danger {
-        /* El botón de cerrar ya no ocupa todo el ancho */
-        justify-content: flex-start; 
+        width: auto; /* El botón vuelve a su tamaño normal */
+        justify-content: flex-start;
+    }
+    .caja-details {
+        /* Pasamos a 2 columnas para los 4 widgets principales */
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .caja-subtotals {
+        /* Mantenemos 4 columnas para los subtotales */
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Escritorios Grandes (min-width: 1200px) */
+@media (min-width: 1200px) {
+    .caja-details {
+        /* Solo en pantallas muy grandes mostramos los 4 widgets en una sola fila */
+        grid-template-columns: repeat(4, 1fr);
     }
 }
 
