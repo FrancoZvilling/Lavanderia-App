@@ -23,6 +23,7 @@ export interface TipoDePrenda {
 export interface Venta {
   id: string; // CAMBIO CLAVE: de 'number' a 'string'
   fecha: Timestamp; // CAMBIO CLAVE: de 'Date' a 'Timestamp'
+  cajaId: string;
   clienteId: string | null; // CAMBIO CLAVE: de 'number | null' a 'string | null'
   montoTotal: number;
   metodoDePago: MetodoDePago;
@@ -36,6 +37,21 @@ export interface Venta {
 export interface Empleado {
   id: string;
   nombreCompleto: string;
+}
+export interface MotivoRetiro {
+  id: string;
+  nombre: string;
+}
+
+export interface Retiro {
+  id: string;
+  monto: number;
+  metodo: 'Efectivo' | 'Transferencia';
+  motivo: string;
+  empleadoId: string;
+  empleadoNombre: string;
+  fecha: Timestamp;
+  cajaId: string;
 }
 
 // Interfaz para el módulo de Caja
@@ -53,7 +69,10 @@ export interface RegistroCaja {
   totalTransferencia?: number;
   totalDebito?: number;       
   totalCredito?: number; 
+  totalRetirosEfectivo?: number; 
+  totalRetirosTransferencia?: number;
   ventasDelDia: Venta[]; // Lo seguimos usando para la caja activa
+  retirosDelDia?: Retiro[];
 }
 
 // Interfaz para los Premios del sistema de fidelización

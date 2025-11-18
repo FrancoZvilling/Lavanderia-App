@@ -4,7 +4,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { useAuth } from './AuthContext';
-import type { RegistroCaja, Venta } from '../types';
+import type { RegistroCaja, Venta, Retiro } from '../types';
 
 interface CajaContextType {
   cajaActual: RegistroCaja | null;
@@ -26,11 +26,13 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
     }
 
     let unsubscribeVentas: Unsubscribe | null = null;
+    let unsubscribeRetiros: Unsubscribe | null = null;
 
     const qCajaAbierta = query(collection(db, 'cajas'), where('fechaCierre', '==', null));
     
     const unsubscribeCajas = onSnapshot(qCajaAbierta, (snapshotCajas) => {
-      if (unsubscribeVentas) { unsubscribeVentas(); }
+      if (unsubscribeVentas) unsubscribeVentas();
+      if (unsubscribeRetiros) unsubscribeRetiros();
 
       if (snapshotCajas.empty) {
         setCajaActual(null);
@@ -39,26 +41,43 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
         const cajaAbiertaDoc = snapshotCajas.docs[0];
         const cajaAbiertaData = cajaAbiertaDoc.data();
         
-        const qVentas = query(collection(db, 'ventas'), where('fecha', '>=', cajaAbiertaData.fechaApertura));
+        const qVentas = query(collection(db, 'ventas'), where('cajaId', '==', cajaAbiertaDoc.id));
+        const qRetiros = query(collection(db, 'retiros'), where('cajaId', '==', cajaAbiertaDoc.id));
+
+        let ventasData: Venta[] = [];
+        let retirosData: Retiro[] = [];
+        let listenersReady = { ventas: false, retiros: false };
+
+        const updateCajaActual = () => {
+          if (listenersReady.ventas && listenersReady.retiros) {
+            // --- CORRECCIÓN CLAVE: Leemos TODOS los campos del documento ---
+            const cajaCompleta: RegistroCaja = {
+              id: cajaAbiertaDoc.id,
+              fechaApertura: cajaAbiertaData.fechaApertura,
+              montoInicial: cajaAbiertaData.montoInicial,
+              diferenciaApertura: cajaAbiertaData.diferenciaApertura,
+              empleadoId: cajaAbiertaData.empleadoId,
+              empleadoNombre: cajaAbiertaData.empleadoNombre,
+              ventasDelDia: ventasData,
+              retirosDelDia: retirosData,
+              fechaCierre: null,
+              montoFinal: null
+            };
+            setCajaActual(cajaCompleta);
+            setLoadingCaja(false);
+          }
+        };
         
-        unsubscribeVentas = onSnapshot(qVentas, (snapshotVentas) => {
-          const ventasData = snapshotVentas.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
-          
-          // --- CORRECCIÓN DEFINITIVA ---
-          // Leemos TODOS los campos del documento de la caja, incluyendo los del empleado.
-          const cajaAbiertaCompleta: RegistroCaja = {
-            id: cajaAbiertaDoc.id,
-            fechaApertura: cajaAbiertaData.fechaApertura,
-            montoInicial: cajaAbiertaData.montoInicial,
-            diferenciaApertura: cajaAbiertaData.diferenciaApertura,
-            empleadoId: cajaAbiertaData.empleadoId,
-            empleadoNombre: cajaAbiertaData.empleadoNombre,
-            ventasDelDia: ventasData,
-            fechaCierre: null,
-            montoFinal: null
-          };
-          setCajaActual(cajaAbiertaCompleta);
-          setLoadingCaja(false);
+        unsubscribeVentas = onSnapshot(qVentas, (snapshot) => {
+          ventasData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
+          listenersReady.ventas = true;
+          updateCajaActual();
+        });
+
+        unsubscribeRetiros = onSnapshot(qRetiros, (snapshot) => {
+          retirosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Retiro));
+          listenersReady.retiros = true;
+          updateCajaActual();
         });
       }
     }, (error) => {
@@ -68,7 +87,8 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       unsubscribeCajas();
-      if (unsubscribeVentas) { unsubscribeVentas(); }
+      if (unsubscribeVentas) unsubscribeVentas();
+      if (unsubscribeRetiros) unsubscribeRetiros();
     };
   }, [currentUser]);
 

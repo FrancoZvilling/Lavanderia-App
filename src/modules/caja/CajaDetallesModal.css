@@ -35,3 +35,7 @@
 .detalle-seccion p {
   margin: 5px 0;
 }
+
+.valor-egreso {
+  color: #e74c3c; /* Rojo para indicar que es una salida de dinero */
+}

@@ -10,8 +10,12 @@ import HistorialCajaTable from '../modules/caja/HistorialCajaTable';
 import AbrirCajaForm from '../modules/caja/AbrirCajaForm';
 import CerrarCajaForm from '../modules/caja/CerrarCajaForm';
 import CajaDetallesModal from '../modules/caja/CajaDetallesModal';
+import RetiroFormModal from '../modules/caja/RetiroFormModal';
+import RetirosHistorial from '../modules/caja/RetirosHistorial';
 import Modal from '../components/Modal';
-import type { RegistroCaja, Empleado, MetodoDePago } from '../types';
+import Spinner from '../components/Spinner';
+import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import type { RegistroCaja, Empleado, MetodoDePago, MotivoRetiro, Retiro } from '../types';
 import './VentasPage.css';
 
 const PAGE_SIZE_CAJA = 15;
@@ -22,6 +26,7 @@ const CajaPage = () => {
   const [isAbrirModalOpen, setIsAbrirModalOpen] = useState(false);
   const [isCerrarModalOpen, setIsCerrarModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isRetiroModalOpen, setIsRetiroModalOpen] = useState(false);
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroCaja | null>(null);
 
   const [historialCajas, setHistorialCajas] = useState<RegistroCaja[]>([]);
@@ -30,7 +35,6 @@ const CajaPage = () => {
   const today = new Date();
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const [filterDateCaja, setFilterDateCaja] = useState<string>(todayString);
-  
   const debouncedFilterDateCaja = useDebounce(filterDateCaja, 400);
 
   const [lastDocCaja, setLastDocCaja] = useState<DocumentData | null>(null);
@@ -38,7 +42,12 @@ const CajaPage = () => {
   const [loadingMoreCaja, setLoadingMoreCaja] = useState(false);
   
   const [montoCierreAnterior, setMontoCierreAnterior] = useState<number | null>(null);
+  
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [motivosRetiro, setMotivosRetiro] = useState<MotivoRetiro[]>([]);
+  const [showRetiros, setShowRetiros] = useState(false);
+  const [historialRetiros, setHistorialRetiros] = useState<Retiro[]>([]);
+  const [loadingRetiros, setLoadingRetiros] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -66,6 +75,7 @@ const CajaPage = () => {
         const historialSnapshot = await getDocs(q);
 
         if (!isCancelled) {
+          // --- CORRECCIÓN CLAVE 1: Añadimos los campos de retiro ---
           const historialData = historialSnapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -82,6 +92,8 @@ const CajaPage = () => {
               totalTransferencia: data.totalTransferencia,
               totalDebito: data.totalDebito,
               totalCredito: data.totalCredito,
+              totalRetirosEfectivo: data.totalRetirosEfectivo, // Campo añadido
+              totalRetirosTransferencia: data.totalRetirosTransferencia, // Campo añadido
               ventasDelDia: [],
             } as RegistroCaja;
           });
@@ -122,16 +134,37 @@ const CajaPage = () => {
       } catch (error) { console.error("Error al obtener el último cierre de caja:", error); }
 
       try {
-        const qEmpleados = query(collection(db, 'empleados'), orderBy('nombreCompleto'));
-        const empleadosSnapshot = await getDocs(qEmpleados);
+        const [empleadosSnapshot, motivosSnapshot] = await Promise.all([
+            getDocs(query(collection(db, 'empleados'), orderBy('nombreCompleto'))),
+            getDocs(query(collection(db, 'motivosRetiro'), orderBy('nombre'))),
+        ]);
         setEmpleados(empleadosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Empleado)));
+        setMotivosRetiro(motivosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoRetiro)));
       } catch (error) {
-        console.error("Error al obtener empleados:", error);
-        toast.error("No se pudo cargar la lista de empleados.");
+        console.error("Error al obtener empleados/motivos:", error);
+        toast.error("No se pudo cargar la lista de empleados o motivos.");
       }
     };
     fetchInitialData();
   }, [cajaActual]);
+
+  useEffect(() => {
+    if (showRetiros) {
+      const fetchRetiros = async () => {
+        setLoadingRetiros(true);
+        try {
+          const q = query(collection(db, 'retiros'), orderBy('fecha', 'desc'));
+          const retirosSnapshot = await getDocs(q);
+          setHistorialRetiros(retirosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Retiro)));
+        } catch (error) {
+          toast.error("Error al cargar el historial de retiros.");
+        } finally {
+          setLoadingRetiros(false);
+        }
+      };
+      fetchRetiros();
+    }
+  }, [showRetiros]);
 
   const handleLoadMoreCaja = async () => {
     if (!lastDocCaja || loadingMoreCaja) return;
@@ -149,6 +182,8 @@ const CajaPage = () => {
           limit(PAGE_SIZE_CAJA)
         );
         const historialSnapshot = await getDocs(q);
+        
+        // --- CORRECCIÓN CLAVE 2: Añadimos los campos de retiro aquí también ---
         const nuevoHistorial = historialSnapshot.docs.map(doc => {
             const data = doc.data();
             const registro: RegistroCaja = {
@@ -165,6 +200,8 @@ const CajaPage = () => {
                 totalTransferencia: data.totalTransferencia,
                 totalDebito: data.totalDebito,
                 totalCredito: data.totalCredito,
+                totalRetirosEfectivo: data.totalRetirosEfectivo, // Campo añadido
+                totalRetirosTransferencia: data.totalRetirosTransferencia, // Campo añadido
                 ventasDelDia: [],
             };
             return registro;
@@ -203,6 +240,8 @@ const CajaPage = () => {
         totalTransferencia: 0,
         totalDebito: 0,
         totalCredito: 0,
+        totalRetirosEfectivo: 0,
+        totalRetirosTransferencia: 0,
       });
       setIsAbrirModalOpen(false);
       toast.success("Caja abierta con éxito.");
@@ -215,12 +254,15 @@ const CajaPage = () => {
   const handleCerrarCaja = async (montoFinal: number) => {
     if (!cajaActual) return;
     
-    const subtotales = cajaActual.ventasDelDia.reduce((acc, venta) => {
+    const subtotales = (cajaActual.ventasDelDia || []).reduce((acc, venta) => {
         acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
         return acc;
     }, { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 } as Record<MetodoDePago, number>);
 
     const totalVentasDelDia = Object.values(subtotales).reduce((sum, current) => sum + current, 0);
+
+    const retirosEfectivo = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
+    const retirosTransferencia = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Transferencia').reduce((sum, r) => sum + r.monto, 0);
 
     const cajaDocRef = doc(db, 'cajas', cajaActual.id);
     const fechaDeCierre = Timestamp.fromDate(new Date());
@@ -234,6 +276,8 @@ const CajaPage = () => {
             totalTransferencia: subtotales.Transferencia,
             totalDebito: subtotales.Débito,
             totalCredito: subtotales.Crédito,
+            totalRetirosEfectivo: retirosEfectivo,
+            totalRetirosTransferencia: retirosTransferencia,
         });
 
         const cajaCerrada: RegistroCaja = { 
@@ -245,7 +289,10 @@ const CajaPage = () => {
             totalTransferencia: subtotales.Transferencia,
             totalDebito: subtotales.Débito,
             totalCredito: subtotales.Crédito,
-            ventasDelDia: [] 
+            totalRetirosEfectivo: retirosEfectivo,
+            totalRetirosTransferencia: retirosTransferencia,
+            ventasDelDia: [],
+            retirosDelDia: [], 
         };
         
         const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
@@ -263,12 +310,54 @@ const CajaPage = () => {
         toast.error("No se pudo cerrar la caja.");
     }
   };
+  
+  const handleSaveRetiro = async (retiroData: { monto: number; metodo: 'Efectivo' | 'Transferencia'; motivo: string; empleado: { id: string; nombre: string; };}) => {
+    if (!cajaActual) return;
+    
+    const ingresosEfectivo = (cajaActual.ventasDelDia || []).filter(v => v.metodoDePago === 'Efectivo').reduce((sum, v) => sum + v.montoTotal, 0);
+    const retirosEfectivo = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
+    const efectivoDisponible = (cajaActual.montoInicial + ingresosEfectivo) - retirosEfectivo;
+
+    if (retiroData.metodo === 'Efectivo' && retiroData.monto > efectivoDisponible) {
+      toast.error(`Fondos insuficientes. Efectivo disponible: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(efectivoDisponible)}`);
+      return;
+    }
+    
+    try {
+      await addDoc(collection(db, 'retiros'), {
+        monto: retiroData.monto,
+        metodo: retiroData.metodo,
+        motivo: retiroData.motivo,
+        empleadoId: retiroData.empleado.id,
+        empleadoNombre: retiroData.empleado.nombre,
+        cajaId: cajaActual.id,
+        fecha: Timestamp.fromDate(new Date()),
+      });
+      toast.success("Retiro registrado con éxito.");
+      setIsRetiroModalOpen(false);
+    } catch (error) { 
+      console.error("Error al registrar el retiro:", error);
+      toast.error("No se pudo registrar el retiro.");
+    }
+  };
+
+  const handleCreateMotivo = async (nombreMotivo: string): Promise<MotivoRetiro> => {
+    try {
+        const docRef = await addDoc(collection(db, 'motivosRetiro'), { nombre: nombreMotivo });
+        const nuevoMotivo = { id: docRef.id, nombre: nombreMotivo };
+        setMotivosRetiro(prev => [...prev, nuevoMotivo].sort((a,b) => a.nombre.localeCompare(b.nombre)));
+        toast.info(`Nuevo motivo "${nombreMotivo}" creado.`);
+        return nuevoMotivo;
+    } catch (error) {
+        toast.error("No se pudo crear el nuevo motivo.");
+        return { id: 'error-' + Date.now(), nombre: nombreMotivo };
+    }
+  };
 
   const handleOpenDetailsModal = (registro: RegistroCaja) => {
     setRegistroSeleccionado(registro);
     setIsDetailsModalOpen(true);
   };
-
   const handleCloseDetailsModal = () => {
     setIsDetailsModalOpen(false);
     setRegistroSeleccionado(null);
@@ -285,6 +374,32 @@ const CajaPage = () => {
         onAbrirCaja={() => setIsAbrirModalOpen(true)}
         onCerrarCaja={() => setIsCerrarModalOpen(true)}
       />
+
+      <section className="config-section">
+        <header className="page-header">
+          <h2>Movimientos de Caja</h2>
+          <div className="header-actions" style={{ flexDirection: 'row', gap: '10px' }}>
+            <button className="secondary-button" onClick={() => setShowRetiros(!showRetiros)}>
+              {showRetiros ? <FaChevronUp/> : <FaChevronDown/>}
+              <span style={{marginLeft: '8px'}}>Historial de Retiros</span>
+            </button>
+            <button 
+              className="primary-button" 
+              onClick={() => setIsRetiroModalOpen(true)} 
+              disabled={!cajaActual} 
+              title={!cajaActual ? "Debe abrir la caja para registrar retiros" : "Registrar un nuevo retiro"}
+            >
+              Hacer Retiro
+            </button>
+          </div>
+        </header>
+        {showRetiros && (
+          <div style={{ marginTop: '20px' }}>
+            {loadingRetiros ? <Spinner/> : <RetirosHistorial retiros={historialRetiros} />}
+          </div>
+        )}
+      </section>
+
       <div className="history-section">
         <header className="page-header" style={{marginBottom: '20px', alignItems: 'center'}}>
           <h1>Historial de Cajas</h1>
@@ -301,7 +416,7 @@ const CajaPage = () => {
           </div>
         </header>
         {loadingHistorial ? 
-            <p style={{textAlign: 'center'}}>Cargando historial del día...</p> 
+            <Spinner /> 
             : <HistorialCajaTable 
                 registros={historialCajas}
                 onVerDetalles={handleOpenDetailsModal}
@@ -340,6 +455,15 @@ const CajaPage = () => {
           <CajaDetallesModal registro={registroSeleccionado} />
         </Modal>
       )}
+      <Modal isOpen={isRetiroModalOpen} onClose={() => setIsRetiroModalOpen(false)} title="Registrar Nuevo Retiro">
+          <RetiroFormModal 
+            onClose={() => setIsRetiroModalOpen(false)}
+            onSave={handleSaveRetiro}
+            empleados={empleados}
+            motivos={motivosRetiro}
+            onCreateMotivo={handleCreateMotivo}
+          />
+      </Modal>
     </div>
   );
 };

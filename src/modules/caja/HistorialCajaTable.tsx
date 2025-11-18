@@ -1,11 +1,9 @@
 import type { RegistroCaja } from '../../types';
 import type { Timestamp } from 'firebase/firestore';
-// Importamos un icono para el nuevo botón y los estilos de botones
 import { FaEye } from 'react-icons/fa';
 import '../fidelizacion/PremiosTable.css';
 import './HistorialCajaTable.css';
 
-// 1. La interfaz ahora incluye la función 'onVerDetalles'
 interface HistorialCajaTableProps {
   registros: RegistroCaja[];
   onVerDetalles: (registro: RegistroCaja) => void;
@@ -25,10 +23,18 @@ const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros, onVe
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
   };
 
+  // --- FÓRMULA DE ARQUEO CORREGIDA Y DEFINITIVA ---
   const calcularArqueo = (registro: RegistroCaja) => {
     if (registro.montoFinal == null) return 0;
-    const ingresosEnEfectivo = registro.totalEfectivo ?? registro.totalVentas ?? 0;
-    return registro.montoFinal - (registro.montoInicial + ingresosEnEfectivo);
+
+    // Obtenemos los valores guardados, con 0 como valor por defecto si no existen
+    const ingresosEnEfectivo = registro.totalEfectivo ?? 0;
+    const retirosEnEfectivo = registro.totalRetirosEfectivo ?? 0;
+    
+    // Aplicamos la fórmula completa que considera los retiros
+    const esperadoEnCaja = registro.montoInicial + ingresosEnEfectivo - retirosEnEfectivo;
+    
+    return registro.montoFinal - esperadoEnCaja;
   };
   
   const getArqueoClass = (valor: number) => {
@@ -64,13 +70,11 @@ const HistorialCajaTable: React.FC<HistorialCajaTableProps> = ({ registros, onVe
                 <td data-label="Dif. Apertura" className={getArqueoClass(registro.diferenciaApertura || 0)}>
                   {formatMoneda(registro.diferenciaApertura || 0)}
                 </td>
-                {/* 3. Se eliminó la celda de "Total Ventas" */}
                 <td data-label="Monto Final">{formatMoneda(registro.montoFinal)}</td>
                 <td data-label="Arqueo" className={getArqueoClass(arqueo)}>
                   {formatMoneda(arqueo)}
                 </td>
                 <td data-label="Cierre">{formatFecha(registro.fechaCierre)}</td>
-                {/* 4. Nueva celda con el botón "Ver detalle" */}
                 <td data-label="Detalle">
                   <button 
                     className="secondary-button small-button"

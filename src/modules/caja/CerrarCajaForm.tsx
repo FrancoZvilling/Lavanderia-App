@@ -12,27 +12,30 @@ interface CerrarCajaFormProps {
 const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfirm }) => {
   const [montoFinalContado, setMontoFinalContado] = useState('');
 
-  // --- LÓGICA DE CÁLCULO ACTUALIZADA ---
-  const { ingresosTotales, ingresosEnEfectivo, esperadoEnCaja, arqueo } = useMemo(() => {
+  // --- LÓGICA DE CÁLCULO ACTUALIZADA PARA INCLUIR RETIROS ---
+  const { ingresosTotales, ingresosEnEfectivo, retirosEnEfectivo, esperadoEnCaja, arqueo } = useMemo(() => {
     const montoFinalNum = parseFloat(montoFinalContado) || 0;
     
-    // Calcula el total de todas las ventas, sin importar el método de pago
-    const totalGeneral = caja.ventasDelDia.reduce((sum, v) => sum + v.montoTotal, 0);
+    const totalVentas = (caja.ventasDelDia || []).reduce((sum, v) => sum + v.montoTotal, 0);
     
-    // Filtra y suma únicamente las ventas en efectivo
-    const totalEfectivo = caja.ventasDelDia
+    const totalIngresosEfectivo = (caja.ventasDelDia || [])
       .filter(v => v.metodoDePago === 'Efectivo')
       .reduce((sum, v) => sum + v.montoTotal, 0);
+      
+    // Calculamos los retiros en efectivo que ocurrieron durante la sesión
+    const totalRetirosEfectivo = (caja.retirosDelDia || [])
+      .filter(r => r.metodo === 'Efectivo')
+      .reduce((sum, r) => sum + r.monto, 0);
 
-    // El esperado en caja es el monto inicial más solo el efectivo
-    const esperado = caja.montoInicial + totalEfectivo;
+    // La fórmula correcta para lo esperado en caja
+    const esperado = caja.montoInicial + totalIngresosEfectivo - totalRetirosEfectivo;
     
-    // El arqueo es la diferencia entre lo contado y lo esperado en efectivo
     const diferencia = montoFinalNum - esperado;
     
     return { 
-      ingresosTotales: totalGeneral, 
-      ingresosEnEfectivo: totalEfectivo, 
+      ingresosTotales: totalVentas, 
+      ingresosEnEfectivo: totalIngresosEfectivo,
+      retirosEnEfectivo: totalRetirosEfectivo,
       esperadoEnCaja: esperado, 
       arqueo: diferencia 
     };
@@ -41,7 +44,6 @@ const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfir
   const handleSubmit = () => {
     const montoFinalNum = parseFloat(montoFinalContado);
     if (!isNaN(montoFinalNum) && montoFinalNum >= 0) {
-      // Pasamos el monto final contado al padre para guardarlo
       onConfirm(montoFinalNum);
     } else {
       alert('Por favor, ingrese un monto final válido.');
@@ -53,7 +55,6 @@ const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfir
 
   return (
     <form className="add-sale-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-      {/* Muestra un resumen de los ingresos totales del día */}
       <div className="summary-grid">
         <div className="summary-total">Ingresos Totales del Día:</div>
         <div className="summary-total">{formatMoneda(ingresosTotales)}</div>
@@ -61,12 +62,15 @@ const CerrarCajaForm: React.FC<CerrarCajaFormProps> = ({ caja, onClose, onConfir
       
       <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '20px 0' }} />
 
-      {/* Muestra el desglose para el arqueo de EFECTIVO */}
+      {/* --- RESUMEN DE ARQUEO ACTUALIZADO --- */}
       <div className="summary-grid">
         <div>Monto Inicial (Efectivo):</div>
         <div>{formatMoneda(caja.montoInicial)}</div>
         <div>+ Ingresos en Efectivo:</div>
         <div>{formatMoneda(ingresosEnEfectivo)}</div>
+        {/* Mostramos los retiros para que el cálculo sea transparente */}
+        <div>- Retiros en Efectivo:</div>
+        <div style={{color: '#e74c3c'}}>{formatMoneda(retirosEnEfectivo)}</div>
         <div className="summary-total">Total Esperado en Caja (Efectivo):</div>
         <div className="summary-total">{formatMoneda(esperadoEnCaja)}</div>
       </div>
