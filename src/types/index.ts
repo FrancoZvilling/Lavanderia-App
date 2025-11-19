@@ -1,30 +1,34 @@
 import type { Timestamp } from 'firebase/firestore';
 
 export type EstadoLavado = 'En preparación' | 'Listo' | 'Entregado';
-export type MetodoDePago = 'Efectivo' | 'Transferencia' | 'Débito' | 'Crédito';
+
+// --- CORRECCIÓN 1: Añadimos 'Cuenta Corriente' a los métodos de pago ---
+export type MetodoDePago = 'Efectivo' | 'Transferencia' | 'Débito' | 'Crédito' | 'Cuenta Corriente';
 
 export interface Cliente {
   id: string;
   nombre: string;
   apellido: string;
-  documento: string; // <-- AÑADIDO (o verificado que exista)
-  contacto: string;   // Sigue siendo el email
-  telefono: string; // <-- AÑADIDO (o verificado que exista)
+  documento: string;
+  contacto: string;
+  telefono: string;
   puntos: number;
   estadoLavado: EstadoLavado;
 }
 
 export interface TipoDePrenda {
-  id: string; // CAMBIO CLAVE: de 'number' a 'string'
+  id: string;
   nombre: string;
   precio: number;
 }
 
 export interface Venta {
-  id: string; // CAMBIO CLAVE: de 'number' a 'string'
-  fecha: Timestamp; // CAMBIO CLAVE: de 'Date' a 'Timestamp'
+  id: string;
+  fecha: Timestamp;
   cajaId: string;
-  clienteId: string | null; // CAMBIO CLAVE: de 'number | null' a 'string | null'
+  clienteId: string | null;
+  // --- CORRECCIÓN 2: Añadimos el número de ticket (opcional) ---
+  nroTicket?: string; 
   montoTotal: number;
   metodoDePago: MetodoDePago;
   items: {
@@ -38,6 +42,7 @@ export interface Empleado {
   id: string;
   nombreCompleto: string;
 }
+
 export interface MotivoRetiro {
   id: string;
   nombre: string;
@@ -54,7 +59,6 @@ export interface Retiro {
   cajaId: string;
 }
 
-// Interfaz para el módulo de Caja
 export interface RegistroCaja {
   id: string;
   fechaApertura: Timestamp;
@@ -71,15 +75,14 @@ export interface RegistroCaja {
   totalCredito?: number; 
   totalRetirosEfectivo?: number; 
   totalRetirosTransferencia?: number;
-  ventasDelDia: Venta[]; // Lo seguimos usando para la caja activa
+  ventasDelDia: Venta[];
   retirosDelDia?: Retiro[];
 }
 
-// Interfaz para los Premios del sistema de fidelización
 export interface Premio {
-  id: string; // El ID del documento de Firestore
+  id: string;
   nombre: string;
   puntosRequeridos: number;
   descripcion: string;
-  activo: boolean; // Para activar o desactivar el premio
+  activo: boolean;
 }

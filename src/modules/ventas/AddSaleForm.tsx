@@ -159,7 +159,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
       <div className="form-group">
         <label>Método de Pago</label>
         <div className="payment-method-selector">
-          {(['Efectivo', 'Transferencia', 'Débito', 'Crédito'] as MetodoDePago[]).map((metodo) => (
+          {(['Efectivo', 'Transferencia', 'Débito', 'Crédito', 'Cuenta Corriente'] as MetodoDePago[]).map((metodo) => (
             <React.Fragment key={metodo}>
               <input 
                 type="radio" 
