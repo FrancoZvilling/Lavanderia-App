@@ -1,16 +1,17 @@
 import type { Venta, Cliente } from '../../types';
-import { FaCheck, FaTimes } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaEye } from 'react-icons/fa';
 // Reutilizaremos los estilos de la tabla de premios para el diseño responsivo
 import '../fidelizacion/PremiosTable.css';
 
 interface CuentaCorrienteTableProps {
   ventas: Venta[];
-  clientes: Cliente[]; // Necesitamos la lista de clientes para mostrar el nombre
+  clientes: Cliente[];
   onProcesar: (venta: Venta) => void;
   onAnular: (venta: Venta) => void;
+  onVerDetalles: (venta: Venta) => void; // Prop añadida
 }
 
-const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, clientes, onProcesar, onAnular }) => {
+const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, clientes, onProcesar, onAnular, onVerDetalles }) => {
   const getNombreCliente = (clienteId: string | null) => {
     if (!clienteId) return 'Cliente Anónimo';
     const cliente = clientes.find(c => c.id === clienteId);
@@ -37,6 +38,14 @@ const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, cli
               <td data-label="Nombre">{getNombreCliente(venta.clienteId)}</td>
               <td data-label="Total">{formatMoneda(venta.montoTotal)}</td>
               <td data-label="Acciones" className="acciones">
+                {/* --- BOTÓN "VER" AÑADIDO --- */}
+                <button
+                  className="secondary-button small-button"
+                  onClick={() => onVerDetalles(venta)}
+                  title="Ver Detalles de la Venta"
+                >
+                  <FaEye /> <span>Ver</span>
+                </button>
                 <button 
                   className="secondary-button small-button toggle-btn activar"
                   onClick={() => onProcesar(venta)}

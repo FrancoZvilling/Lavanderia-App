@@ -32,6 +32,24 @@
   margin-bottom: 20px;
 }
 
+.history-toggles-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Centra los botones horizontalmente */
+  gap: 15px; /* Espacio entre los botones de historial */
+  margin-top: 20px;
+}
+
+.history-toggle {
+  width: 100%;
+  max-width: 400px; /* Un ancho máximo para que no se estire demasiado en escritorio */
+}
+
+.history-toggle button {
+  width: 100%; /* Hace que los botones ocupen el ancho del contenedor */
+  justify-content: center; /* Centra el contenido del botón */
+}
+
 /* --- MEDIA QUERY PARA MÓVILES --- */
 @media (max-width: 768px) {
   .config-form {

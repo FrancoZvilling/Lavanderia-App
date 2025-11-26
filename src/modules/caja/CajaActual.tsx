@@ -29,35 +29,49 @@ const CajaActual: React.FC<CajaActualProps> = ({ caja, onAbrirCaja, onCerrarCaja
     );
   }
 
-  // --- LÓGICA DE CÁLCULO MEJORADA CON RETIROS ---
+  // --- LÓGICA DE CÁLCULO FINAL Y COMPLETA CON INGRESOS MANUALES ---
   const { 
-    ingresosTotales, 
+    ingresosTotalesVentas,
     ingresosEnEfectivo, 
+    ingresosManualesEnEfectivo,
     retirosEnEfectivo,
-    retirosEnTransferencia,
-    subtotalesIngresos 
+    subtotalesIngresos,
+    subtotalesRetiros,
+    subtotalesIngresosManuales
   } = useMemo(() => {
-    const subtotales = (caja.ventasDelDia || []).reduce((acc, venta) => {
+    // Calcula subtotales de ingresos por ventas
+    const sIngresos = (caja.ventasDelDia || []).reduce((acc, venta) => {
       acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
       return acc;
     }, { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 } as Record<MetodoDePago, number>);
+    
+    // Calcula subtotales de retiros
+    const sRetiros = (caja.retirosDelDia || []).reduce((acc, retiro) => {
+      acc[retiro.metodo] = (acc[retiro.metodo] || 0) + retiro.monto;
+      return acc;
+    }, { Efectivo: 0, Transferencia: 0 } as Record<'Efectivo' | 'Transferencia', number>);
 
-    const retirosEfectivo = (caja.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
-    const retirosTransferencia = (caja.retirosDelDia || []).filter(r => r.metodo === 'Transferencia').reduce((sum, r) => sum + r.monto, 0);
+    // Calcula subtotales de ingresos manuales
+    const sIngresosManuales = (caja.ingresosDelDia || []).reduce((acc, ingreso) => {
+        acc[ingreso.metodo] = (acc[ingreso.metodo] || 0) + ingreso.monto;
+        return acc;
+    }, { Efectivo: 0, Transferencia: 0 } as Record<'Efectivo' | 'Transferencia', number>);
 
-    const totalVentas = Object.values(subtotales).reduce((sum, current) => sum + current, 0);
+    const totalVentas = Object.values(sIngresos).reduce((sum, current) => sum + current, 0);
     
     return { 
-      ingresosTotales: totalVentas, 
-      ingresosEnEfectivo: subtotales.Efectivo,
-      retirosEnEfectivo: retirosEfectivo,
-      retirosEnTransferencia: retirosTransferencia,
-      subtotalesIngresos: subtotales 
+      ingresosTotalesVentas: totalVentas, 
+      ingresosEnEfectivo: sIngresos.Efectivo,
+      ingresosManualesEnEfectivo: sIngresosManuales.Efectivo,
+      retirosEnEfectivo: sRetiros.Efectivo,
+      subtotalesIngresos: sIngresos,
+      subtotalesRetiros: sRetiros,
+      subtotalesIngresosManuales: sIngresosManuales,
     };
-  }, [caja.ventasDelDia, caja.retirosDelDia]);
+  }, [caja.ventasDelDia, caja.retirosDelDia, caja.ingresosDelDia]);
 
-  // --- CÁLCULO FINAL Y CORRECTO DEL ESPERADO EN CAJA ---
-  const esperadoEnCaja = caja.montoInicial + ingresosEnEfectivo - retirosEnEfectivo;
+  // --- FÓRMULA FINAL Y CORRECTA DEL ESPERADO EN CAJA ---
+  const esperadoEnCaja = caja.montoInicial + ingresosEnEfectivo + ingresosManualesEnEfectivo - retirosEnEfectivo;
 
   return (
     <div className="caja-card abierta">
@@ -69,38 +83,50 @@ const CajaActual: React.FC<CajaActualProps> = ({ caja, onAbrirCaja, onCerrarCaja
         </button>
       </div>
       
+      {/* --- WIDGETS PRINCIPALES CON LA FÓRMULA COMPLETA --- */}
       <div className="caja-details four-columns">
         <div>
           <span>Monto Inicial</span>
           <strong>{formatMoneda(caja.montoInicial)}</strong>
         </div>
         <div>
-          <span>+ Ingresos Efectivo</span>
+          <span>+ Ing. Efectivo (Ventas)</span>
           <strong>{formatMoneda(ingresosEnEfectivo)}</strong>
+        </div>
+        <div>
+          <span>+ Ing. Efectivo (Manual)</span>
+          <strong>{formatMoneda(ingresosManualesEnEfectivo)}</strong>
         </div>
         <div>
           <span>- Retiros Efectivo</span>
           <strong className="retiro-valor">{formatMoneda(retirosEnEfectivo)}</strong>
         </div>
-        <div>
-          <span>= Esperado en Caja</span>
-          <strong className="esperado-total">{formatMoneda(esperadoEnCaja)}</strong>
-        </div>
+      </div>
+      <div className="caja-details-total">
+        <span>= Esperado en Caja (Efectivo)</span>
+        <strong className="esperado-total">{formatMoneda(esperadoEnCaja)}</strong>
       </div>
       
+      {/* --- WIDGETS DE SUBTOTALES CON EL DESGLOSE COMPLETO --- */}
       <div className="caja-subtotals">
-        {/* Ingresos */}
-        <div className="subtotal-item"><span>Ing. Efectivo</span><strong>{formatMoneda(subtotalesIngresos.Efectivo)}</strong></div>
-        <div className="subtotal-item"><span>Ing. Transferencia</span><strong>{formatMoneda(subtotalesIngresos.Transferencia)}</strong></div>
-        <div className="subtotal-item"><span>Ing. Débito</span><strong>{formatMoneda(subtotalesIngresos.Débito)}</strong></div>
-        <div className="subtotal-item"><span>Ing. Crédito</span><strong>{formatMoneda(subtotalesIngresos.Crédito)}</strong></div>
+        {/* Ingresos por Ventas */}
+        <div className="subtotal-item"><span>Ventas Efectivo</span><strong>{formatMoneda(subtotalesIngresos.Efectivo)}</strong></div>
+        <div className="subtotal-item"><span>Ventas Transf.</span><strong>{formatMoneda(subtotalesIngresos.Transferencia)}</strong></div>
+        <div className="subtotal-item"><span>Ventas Débito</span><strong>{formatMoneda(subtotalesIngresos.Débito)}</strong></div>
+        <div className="subtotal-item"><span>Ventas Crédito</span><strong>{formatMoneda(subtotalesIngresos.Crédito)}</strong></div>
+        
+        {/* Ingresos Manuales */}
+        <div className="subtotal-item ingreso-manual"><span>Ing. Manual Efectivo</span><strong>{formatMoneda(subtotalesIngresosManuales.Efectivo)}</strong></div>
+        <div className="subtotal-item ingreso-manual"><span>Ing. Manual Transf.</span><strong>{formatMoneda(subtotalesIngresosManuales.Transferencia)}</strong></div>
+        
         {/* Egresos */}
-        <div className="subtotal-item egreso"><span>Ret. Efectivo</span><strong>{formatMoneda(retirosEnEfectivo)}</strong></div>
-        <div className="subtotal-item egreso"><span>Ret. Transferencia</span><strong>{formatMoneda(retirosEnTransferencia)}</strong></div>
+        <div className="subtotal-item egreso"><span>Retiros Efectivo</span><strong>{formatMoneda(subtotalesRetiros.Efectivo)}</strong></div>
+        <div className="subtotal-item egreso"><span>Retiros Transf.</span><strong>{formatMoneda(subtotalesRetiros.Transferencia)}</strong></div>
+
         {/* Totales */}
         <div className="subtotal-item total-general">
-            <span>Ingresos Totales del Día</span>
-            <strong>{formatMoneda(ingresosTotales)}</strong>
+            <span>Ingresos Totales (Ventas)</span>
+            <strong>{formatMoneda(ingresosTotalesVentas)}</strong>
         </div>
       </div>
     </div>

@@ -60,9 +60,12 @@
 /* -- LAYOUT DE WIDGETS PRINCIPALES -- */
 .caja-details {
     display: grid;
-    grid-template-columns: 1fr; /* Una columna en móvil */
+    grid-template-columns: 1fr 1fr; /* Dos columnas en móvil */
     gap: 15px;
     text-align: center;
+}
+.caja-details.four-columns {
+    grid-template-columns: 1fr 1fr; /* Mantenemos dos columnas en móvil para este grid también */
 }
 .caja-details div {
     background-color: var(--color-secundario);
@@ -73,8 +76,27 @@
 }
 .caja-details span { color: var(--color-texto); margin-bottom: 10px; font-size: 0.9rem; }
 .caja-details strong { font-size: 1.8rem; color: var(--color-primario); }
-.esperado-total { color: #2980b9 !important; }
 .retiro-valor { color: #e74c3c; }
+
+/* -- NUEVO WIDGET PARA EL TOTAL ESPERADO -- */
+.caja-details-total {
+    background-color: var(--color-secundario);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    margin-top: 15px;
+}
+.caja-details-total span {
+    display: block;
+    color: var(--color-texto);
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+.caja-details-total .esperado-total {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #2980b9;
+}
 
 /* -- LAYOUT DE SUBTOTALES -- */
 .caja-subtotals {
@@ -96,20 +118,11 @@
 .subtotal-item span { font-size: 0.9rem; color: #7f8c8d; margin-bottom: 5px; }
 .subtotal-item strong { font-size: 1.4rem; color: var(--color-texto); }
 .subtotal-item.egreso strong { color: #c0392b; }
-
-.subtotal-item.total-general {
-    background-color: var(--color-secundario);
-    grid-column: 1 / -1;
-    margin-top: 10px;
-}
-.subtotal-item.total-general strong {
-    color: var(--color-primario);
-    font-size: 1.6rem;
-}
+.subtotal-item.ingreso-manual strong { color: #059669; }
 
 /* === MEDIA QUERIES PARA PANTALLAS MÁS GRANDES === */
 
-/* Tablets y Escritorios Pequeños (min-width: 768px) */
+/* Tablets (min-width: 768px) */
 @media (min-width: 768px) {
     .caja-card.cerrada {
         flex-direction: row;
@@ -126,28 +139,38 @@
         width: auto;
         justify-content: flex-start;
     }
-    .caja-details {
-        grid-template-columns: repeat(2, 1fr);
+    .caja-details.four-columns {
+        grid-template-columns: repeat(4, 1fr); /* 4 columnas en tablet para los widgets principales */
     }
-    
-    /* --- CORRECCIÓN CLAVE PARA CENTRAR --- */
     .caja-subtotals {
-        display: flex; /* Cambiamos a Flexbox */
-        flex-wrap: wrap; /* Permitimos que los elementos salten de línea */
-        justify-content: center; /* Centramos los elementos horizontalmente */
-    }
-    .subtotal-item {
-        width: 140px; /* Damos un ancho fijo a cada subtotal */
-    }
-    .subtotal-item.total-general {
-        width: 100%; /* Hacemos que el total ocupe toda la fila */
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); /* Columnas flexibles para subtotales */
     }
 }
 
 /* Escritorios Grandes (min-width: 1200px) */
 @media (min-width: 1200px) {
-    .caja-details {
-        grid-template-columns: repeat(4, 1fr); /* 4 columnas para los widgets principales */
+    .caja-details.four-columns {
+        grid-template-columns: repeat(4, 1fr); /* Mantenemos las 4 columnas */
     }
 }
 
+@media (max-width: 490px) {
+  .caja-details,
+  .caja-details.four-columns {
+    /* Forzamos una sola columna para los widgets principales */
+    grid-template-columns: 1fr;
+  }
+
+  .caja-details strong {
+    font-size: 1.5rem; /* Reducimos un poco el tamaño de la fuente para dar más espacio */
+  }
+
+  .caja-details-total strong {
+    font-size: 1.8rem; /* También reducimos el total */
+  }
+
+  .caja-subtotals {
+    /* Forzamos dos columnas para los subtotales, incluso si son muy estrechos */
+    grid-template-columns: 1fr 1fr;
+  }
+}

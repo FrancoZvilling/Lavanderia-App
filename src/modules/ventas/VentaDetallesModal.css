@@ -54,3 +54,20 @@
   border-bottom: none;
   margin-bottom: 0;
 }
+
+.observaciones-textarea {
+  width: 100%;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.modal-actions-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}

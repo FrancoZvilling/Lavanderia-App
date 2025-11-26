@@ -12,11 +12,14 @@ import CerrarCajaForm from '../modules/caja/CerrarCajaForm';
 import CajaDetallesModal from '../modules/caja/CajaDetallesModal';
 import RetiroFormModal from '../modules/caja/RetiroFormModal';
 import RetirosHistorial from '../modules/caja/RetirosHistorial';
+import IngresoFormModal from '../modules/caja/IngresoFormModal';
+import IngresosHistorial from '../modules/caja/IngresosHistorial';
 import Modal from '../components/Modal';
 import Spinner from '../components/Spinner';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import type { RegistroCaja, Empleado, MetodoDePago, MotivoRetiro, Retiro } from '../types';
+import type { RegistroCaja, Empleado, MetodoDePago, MotivoRetiro, Retiro, Ingreso, MotivoIngreso } from '../types';
 import './VentasPage.css';
+import './ConfiguracionPage.css';
 
 const PAGE_SIZE_CAJA = 15;
 
@@ -27,6 +30,7 @@ const CajaPage = () => {
   const [isCerrarModalOpen, setIsCerrarModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isRetiroModalOpen, setIsRetiroModalOpen] = useState(false);
+  const [isIngresoModalOpen, setIsIngresoModalOpen] = useState(false);
   const [registroSeleccionado, setRegistroSeleccionado] = useState<RegistroCaja | null>(null);
 
   const [historialCajas, setHistorialCajas] = useState<RegistroCaja[]>([]);
@@ -45,9 +49,15 @@ const CajaPage = () => {
   
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [motivosRetiro, setMotivosRetiro] = useState<MotivoRetiro[]>([]);
+  const [motivosIngreso, setMotivosIngreso] = useState<MotivoIngreso[]>([]);
+  
   const [showRetiros, setShowRetiros] = useState(false);
   const [historialRetiros, setHistorialRetiros] = useState<Retiro[]>([]);
   const [loadingRetiros, setLoadingRetiros] = useState(false);
+
+  const [showIngresos, setShowIngresos] = useState(false);
+  const [historialIngresos, setHistorialIngresos] = useState<Ingreso[]>([]);
+  const [loadingIngresos, setLoadingIngresos] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -75,7 +85,6 @@ const CajaPage = () => {
         const historialSnapshot = await getDocs(q);
 
         if (!isCancelled) {
-          // --- CORRECCIÓN CLAVE 1: Añadimos los campos de retiro ---
           const historialData = historialSnapshot.docs.map(doc => {
             const data = doc.data();
             return {
@@ -92,8 +101,10 @@ const CajaPage = () => {
               totalTransferencia: data.totalTransferencia,
               totalDebito: data.totalDebito,
               totalCredito: data.totalCredito,
-              totalRetirosEfectivo: data.totalRetirosEfectivo, // Campo añadido
-              totalRetirosTransferencia: data.totalRetirosTransferencia, // Campo añadido
+              totalRetirosEfectivo: data.totalRetirosEfectivo,
+              totalRetirosTransferencia: data.totalRetirosTransferencia,
+              totalIngresosManualesEfectivo: data.totalIngresosManualesEfectivo,
+              totalIngresosManualesTransferencia: data.totalIngresosManualesTransferencia,
               ventasDelDia: [],
             } as RegistroCaja;
           });
@@ -134,15 +145,18 @@ const CajaPage = () => {
       } catch (error) { console.error("Error al obtener el último cierre de caja:", error); }
 
       try {
-        const [empleadosSnapshot, motivosSnapshot] = await Promise.all([
+        // --- CORRECCIÓN EN LOS NOMBRES DE LAS VARIABLES ---
+        const [empleadosSnapshot, motivosRetiroSnapshot, motivosIngresoSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'empleados'), orderBy('nombreCompleto'))),
             getDocs(query(collection(db, 'motivosRetiro'), orderBy('nombre'))),
+            getDocs(query(collection(db, 'motivosIngreso'), orderBy('nombre'))),
         ]);
         setEmpleados(empleadosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Empleado)));
-        setMotivosRetiro(motivosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoRetiro)));
+        setMotivosRetiro(motivosRetiroSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoRetiro)));
+        setMotivosIngreso(motivosIngresoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoIngreso)));
       } catch (error) {
-        console.error("Error al obtener empleados/motivos:", error);
-        toast.error("No se pudo cargar la lista de empleados o motivos.");
+        console.error("Error al obtener datos de configuración:", error);
+        toast.error("No se pudo cargar la configuración.");
       }
     };
     fetchInitialData();
@@ -166,6 +180,24 @@ const CajaPage = () => {
     }
   }, [showRetiros]);
 
+  useEffect(() => {
+    if (showIngresos) {
+      const fetchIngresos = async () => {
+        setLoadingIngresos(true);
+        try {
+          const q = query(collection(db, 'ingresos'), orderBy('fecha', 'desc'));
+          const ingresosSnapshot = await getDocs(q);
+          setHistorialIngresos(ingresosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ingreso)));
+        } catch (error) {
+          toast.error("Error al cargar el historial de ingresos.");
+        } finally {
+          setLoadingIngresos(false);
+        }
+      };
+      fetchIngresos();
+    }
+  }, [showIngresos]);
+
   const handleLoadMoreCaja = async () => {
     if (!lastDocCaja || loadingMoreCaja) return;
     setLoadingMoreCaja(true);
@@ -182,8 +214,6 @@ const CajaPage = () => {
           limit(PAGE_SIZE_CAJA)
         );
         const historialSnapshot = await getDocs(q);
-        
-        // --- CORRECCIÓN CLAVE 2: Añadimos los campos de retiro aquí también ---
         const nuevoHistorial = historialSnapshot.docs.map(doc => {
             const data = doc.data();
             const registro: RegistroCaja = {
@@ -200,8 +230,10 @@ const CajaPage = () => {
                 totalTransferencia: data.totalTransferencia,
                 totalDebito: data.totalDebito,
                 totalCredito: data.totalCredito,
-                totalRetirosEfectivo: data.totalRetirosEfectivo, // Campo añadido
-                totalRetirosTransferencia: data.totalRetirosTransferencia, // Campo añadido
+                totalRetirosEfectivo: data.totalRetirosEfectivo,
+                totalRetirosTransferencia: data.totalRetirosTransferencia,
+                totalIngresosManualesEfectivo: data.totalIngresosManualesEfectivo,
+                totalIngresosManualesTransferencia: data.totalIngresosManualesTransferencia,
                 ventasDelDia: [],
             };
             return registro;
@@ -220,18 +252,13 @@ const CajaPage = () => {
     }
   };
 
-   const handleAbrirCaja = async (montoInicial: number, empleado: Empleado, pinIngresado: string) => {
-    // 2. Verificación del PIN
-    // El empleado.pinHash no lo tenemos aquí por las reglas de seguridad.
-    // La verificación se hará en el formulario, pero aquí validamos que el PIN no venga vacío.
-    if (!pinIngresado) {
-        toast.error("Debe ingresar un PIN.");
+  // --- FUNCIÓN handleAbrirCaja CON LA FIRMA CORREGIDA ---
+  const handleAbrirCaja = async (montoInicial: number, empleado: Empleado, pinIngresado: string) => {
+    // La verificación del PIN ya se hizo en el formulario, aquí solo recibimos la confirmación
+    if (!empleado || !pinIngresado) {
+        toast.error("Faltan datos para abrir la caja.");
         return;
     }
-    
-    // Como la verificación real del hash la hará el formulario, aquí confiamos en que es correcto.
-    // Esta función ahora solo se preocupa de crear la caja.
-
     try {
       const diferencia = montoCierreAnterior !== null ? montoInicial - montoCierreAnterior : 0;
       await addDoc(collection(db, 'cajas'), {
@@ -243,7 +270,14 @@ const CajaPage = () => {
         fechaCierre: null,
         montoFinal: null,
         totalVentas: 0,
-        // ... (otros campos de totales)
+        totalEfectivo: 0,
+        totalTransferencia: 0,
+        totalDebito: 0,
+        totalCredito: 0,
+        totalRetirosEfectivo: 0,
+        totalRetirosTransferencia: 0,
+        totalIngresosManualesEfectivo: 0,
+        totalIngresosManualesTransferencia: 0,
       });
       setIsAbrirModalOpen(false);
       toast.success(`Caja abierta por ${empleado.nombreCompleto}.`);
@@ -265,6 +299,9 @@ const CajaPage = () => {
 
     const retirosEfectivo = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
     const retirosTransferencia = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Transferencia').reduce((sum, r) => sum + r.monto, 0);
+    
+    const ingresosManualesEfectivo = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Efectivo').reduce((sum, i) => sum + i.monto, 0);
+    const ingresosManualesTransferencia = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Transferencia').reduce((sum, i) => sum + i.monto, 0);
 
     const cajaDocRef = doc(db, 'cajas', cajaActual.id);
     const fechaDeCierre = Timestamp.fromDate(new Date());
@@ -280,6 +317,8 @@ const CajaPage = () => {
             totalCredito: subtotales.Crédito,
             totalRetirosEfectivo: retirosEfectivo,
             totalRetirosTransferencia: retirosTransferencia,
+            totalIngresosManualesEfectivo: ingresosManualesEfectivo,
+            totalIngresosManualesTransferencia: ingresosManualesTransferencia,
         });
 
         const cajaCerrada: RegistroCaja = { 
@@ -293,8 +332,11 @@ const CajaPage = () => {
             totalCredito: subtotales.Crédito,
             totalRetirosEfectivo: retirosEfectivo,
             totalRetirosTransferencia: retirosTransferencia,
+            totalIngresosManualesEfectivo: ingresosManualesEfectivo,
+            totalIngresosManualesTransferencia: ingresosManualesTransferencia,
             ventasDelDia: [],
             retirosDelDia: [], 
+            ingresosDelDia: [],
         };
         
         const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
@@ -317,8 +359,9 @@ const CajaPage = () => {
     if (!cajaActual) return;
     
     const ingresosEfectivo = (cajaActual.ventasDelDia || []).filter(v => v.metodoDePago === 'Efectivo').reduce((sum, v) => sum + v.montoTotal, 0);
+    const ingresosManualesEfectivo = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Efectivo').reduce((sum, i) => sum + i.monto, 0);
     const retirosEfectivo = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
-    const efectivoDisponible = (cajaActual.montoInicial + ingresosEfectivo) - retirosEfectivo;
+    const efectivoDisponible = (cajaActual.montoInicial + ingresosEfectivo + ingresosManualesEfectivo) - retirosEfectivo;
 
     if (retiroData.metodo === 'Efectivo' && retiroData.monto > efectivoDisponible) {
       toast.error(`Fondos insuficientes. Efectivo disponible: ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(efectivoDisponible)}`);
@@ -343,12 +386,45 @@ const CajaPage = () => {
     }
   };
 
-  const handleCreateMotivo = async (nombreMotivo: string): Promise<MotivoRetiro> => {
+  const handleSaveIngreso = async (ingresoData: { monto: number; metodo: 'Efectivo' | 'Transferencia'; motivo: string; empleado: {id: string, nombre: string}}) => {
+    if (!cajaActual) return;
+    try {
+      await addDoc(collection(db, 'ingresos'), {
+        monto: ingresoData.monto,
+        metodo: ingresoData.metodo,
+        motivo: ingresoData.motivo,
+        empleadoId: ingresoData.empleado.id,
+        empleadoNombre: ingresoData.empleado.nombre,
+        cajaId: cajaActual.id,
+        fecha: Timestamp.fromDate(new Date())
+      });
+      toast.success("Ingreso registrado con éxito.");
+      setIsIngresoModalOpen(false);
+    } catch (error) { 
+      console.error("Error al registrar el ingreso:", error);
+      toast.error("Error al registrar el ingreso.");
+    }
+  };
+  
+  const handleCreateMotivoRetiro = async (nombreMotivo: string): Promise<MotivoRetiro> => {
     try {
         const docRef = await addDoc(collection(db, 'motivosRetiro'), { nombre: nombreMotivo });
         const nuevoMotivo = { id: docRef.id, nombre: nombreMotivo };
         setMotivosRetiro(prev => [...prev, nuevoMotivo].sort((a,b) => a.nombre.localeCompare(b.nombre)));
         toast.info(`Nuevo motivo "${nombreMotivo}" creado.`);
+        return nuevoMotivo;
+    } catch (error) {
+        toast.error("No se pudo crear el nuevo motivo.");
+        return { id: 'error-' + Date.now(), nombre: nombreMotivo };
+    }
+  };
+
+  const handleCreateMotivoIngreso = async (nombreMotivo: string): Promise<MotivoIngreso> => {
+    try {
+        const docRef = await addDoc(collection(db, 'motivosIngreso'), { nombre: nombreMotivo });
+        const nuevoMotivo = { id: docRef.id, nombre: nombreMotivo };
+        setMotivosIngreso(prev => [...prev, nuevoMotivo].sort((a,b) => a.nombre.localeCompare(b.nombre)));
+        toast.info(`Nuevo motivo de ingreso "${nombreMotivo}" creado.`);
         return nuevoMotivo;
     } catch (error) {
         toast.error("No se pudo crear el nuevo motivo.");
@@ -366,7 +442,7 @@ const CajaPage = () => {
   };
   
   if (loadingCaja) {
-    return <div className="page-container" style={{ textAlign: 'center', paddingTop: '50px' }}><h2>Cargando Módulo de Caja...</h2></div>;
+    return <Spinner />;
   }
 
   return (
@@ -381,9 +457,8 @@ const CajaPage = () => {
         <header className="page-header">
           <h2>Movimientos de Caja</h2>
           <div className="header-actions" style={{ flexDirection: 'row', gap: '10px' }}>
-            <button className="secondary-button" onClick={() => setShowRetiros(!showRetiros)}>
-              {showRetiros ? <FaChevronUp/> : <FaChevronDown/>}
-              <span style={{marginLeft: '8px'}}>Historial de Retiros</span>
+            <button className="secondary-button" style={{backgroundColor: '#e8f5e9', borderColor: '#27ae60', color: '#27ae60'}} onClick={() => setIsIngresoModalOpen(true)} disabled={!cajaActual} title={!cajaActual ? "Abra la caja para hacer ingresos" : "Registrar un nuevo ingreso"}>
+              Hacer Ingreso
             </button>
             <button 
               className="primary-button" 
@@ -395,11 +470,24 @@ const CajaPage = () => {
             </button>
           </div>
         </header>
-        {showRetiros && (
-          <div style={{ marginTop: '20px' }}>
-            {loadingRetiros ? <Spinner/> : <RetirosHistorial retiros={historialRetiros} />}
+
+        <div className="history-toggles-container">
+          <div className="history-toggle">
+            <button className="secondary-button" onClick={() => setShowIngresos(!showIngresos)}>
+              {showIngresos ? <FaChevronUp/> : <FaChevronDown/>}
+              <span>Historial de Ingresos</span>
+            </button>
           </div>
-        )}
+          {showIngresos && (loadingIngresos ? <Spinner/> : <IngresosHistorial ingresos={historialIngresos} />)}
+
+          <div className="history-toggle">
+            <button className="secondary-button" onClick={() => setShowRetiros(!showRetiros)}>
+              {showRetiros ? <FaChevronUp/> : <FaChevronDown/>}
+              <span>Historial de Retiros</span>
+            </button>
+          </div>
+          {showRetiros && (loadingRetiros ? <Spinner/> : <RetirosHistorial retiros={historialRetiros} />)}
+        </div>
       </section>
 
       <div className="history-section">
@@ -463,7 +551,16 @@ const CajaPage = () => {
             onSave={handleSaveRetiro}
             empleados={empleados}
             motivos={motivosRetiro}
-            onCreateMotivo={handleCreateMotivo}
+            onCreateMotivo={handleCreateMotivoRetiro}
+          />
+      </Modal>
+      <Modal isOpen={isIngresoModalOpen} onClose={() => setIsIngresoModalOpen(false)} title="Registrar Nuevo Ingreso">
+          <IngresoFormModal 
+            onClose={() => setIsIngresoModalOpen(false)}
+            onSave={handleSaveIngreso}
+            empleados={empleados}
+            motivos={motivosIngreso}
+            onCreateMotivo={handleCreateMotivoIngreso}
           />
       </Modal>
     </div>

@@ -49,7 +49,23 @@ export interface MotivoRetiro {
   nombre: string;
 }
 
+export interface MotivoIngreso {
+  id: string;
+  nombre: string;
+}
+
 export interface Retiro {
+  id: string;
+  monto: number;
+  metodo: 'Efectivo' | 'Transferencia';
+  motivo: string;
+  empleadoId: string;
+  empleadoNombre: string;
+  fecha: Timestamp;
+  cajaId: string;
+}
+
+export interface Ingreso {
   id: string;
   monto: number;
   metodo: 'Efectivo' | 'Transferencia';
@@ -76,8 +92,11 @@ export interface RegistroCaja {
   totalCredito?: number; 
   totalRetirosEfectivo?: number; 
   totalRetirosTransferencia?: number;
+  totalIngresosManualesEfectivo?: number;     
+  totalIngresosManualesTransferencia?: number;
   ventasDelDia: Venta[];
   retirosDelDia?: Retiro[];
+  ingresosDelDia?: Ingreso[];
 }
 
 export interface Premio {

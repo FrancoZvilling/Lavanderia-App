@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, addDoc, Timestamp, query, where, orderBy, limit, startAfter, increment, getDoc, doc, updateDoc, runTransaction, onSnapshot, deleteDoc } from 'firebase/firestore';
-import type { DocumentData, QueryConstraint } from 'firebase/firestore';
+import type { DocumentData, QueryConstraint} from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
 import { FaPlus, FaTimesCircle, FaCheckCircle, FaChevronDown, FaChevronUp } from 'react-icons/fa';
@@ -88,53 +88,70 @@ const VentasPage = () => {
     return () => unsubscribe();
   }, []);
 
+  // --- useEffect REESTRUCTURADO para usar onSnapshot ---
   useEffect(() => {
-    const fetchVentas = async () => {
-      setLoading(true);
-      setVentas([]);
-      setLastDoc(null);
-      setHasMore(true);
+    setLoading(true);
+    setHasMore(true);
 
-      try {
-        let queryConstraints: QueryConstraint[] = [];
-        
-        if (debouncedTicketSearch.trim() !== '') {
-          queryConstraints.push(where('nroTicket', '==', debouncedTicketSearch.trim().padStart(6, '0')));
-        } else if (debouncedFilterDate) {
-          const startOfDay = new Date(`${debouncedFilterDate}T00:00:00`);
-          const endOfDay = new Date(`${debouncedFilterDate}T23:59:59.999`);
-          queryConstraints.push(where('fecha', '>=', Timestamp.fromDate(startOfDay)));
-          queryConstraints.push(where('fecha', '<=', Timestamp.fromDate(endOfDay)));
-          
-          if (debouncedFilterClientId !== 'todos') {
-            queryConstraints.push(where('clienteId', '==', debouncedFilterClientId));
-          }
-          queryConstraints.push(orderBy('fecha', 'desc'));
-        } else {
-          setLoading(false);
-          return;
-        }
-        
-        queryConstraints.push(limit(PAGE_SIZE));
-        const q = query(collection(db, 'ventas'), ...queryConstraints);
-        const querySnapshot = await getDocs(q);
-
+    let queryConstraints: QueryConstraint[] = [];
+    
+    // Si hay una búsqueda de ticket, tiene prioridad y no usamos listener
+    if (debouncedTicketSearch.trim() !== '') {
+      queryConstraints.push(where('nroTicket', '==', debouncedTicketSearch.trim().padStart(6, '0')));
+      queryConstraints.push(limit(PAGE_SIZE)); // Limitamos por si acaso
+      
+      const q = query(collection(db, 'ventas'), ...queryConstraints);
+      getDocs(q).then(querySnapshot => {
         const ventasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
         setVentas(ventasData);
-
-        if (querySnapshot.docs.length < PAGE_SIZE || debouncedTicketSearch.trim() !== '') {
-          setHasMore(false);
-        } else {
-          setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
-        }
-      } catch (error) {
-        toast.error("Error al cargar las ventas.");
-      } finally {
+        setHasMore(false); // La búsqueda por ticket no tiene paginación
         setLoading(false);
-      }
-    };
+      }).catch(error => {
+        console.error("Error en búsqueda por ticket:", error);
+        toast.error("Error al buscar el ticket.");
+        setLoading(false);
+      });
 
-    fetchVentas();
+      return; // Salimos del efecto para no activar el listener
+    }
+    
+    // Lógica del listener para filtros de fecha y cliente
+    if (!debouncedFilterDate) {
+      setLoading(false);
+      return;
+    };
+    
+    const startOfDay = new Date(`${debouncedFilterDate}T00:00:00`);
+    const endOfDay = new Date(`${debouncedFilterDate}T23:59:59.999`);
+    queryConstraints.push(where('fecha', '>=', Timestamp.fromDate(startOfDay)));
+    queryConstraints.push(where('fecha', '<=', Timestamp.fromDate(endOfDay)));
+    
+    if (debouncedFilterClientId !== 'todos') {
+      queryConstraints.push(where('clienteId', '==', debouncedFilterClientId));
+    }
+    
+    queryConstraints.push(orderBy('fecha', 'desc'));
+    queryConstraints.push(limit(PAGE_SIZE));
+
+    const q = query(collection(db, 'ventas'), ...queryConstraints);
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const ventasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
+      setVentas(ventasData);
+      if (querySnapshot.docs.length < PAGE_SIZE) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1]);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error("Error al escuchar historial de ventas:", error);
+      toast.error("Error al cargar las ventas.");
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [debouncedFilterDate, debouncedFilterClientId, debouncedTicketSearch]);
 
   const filteredVentasPendientes = useMemo(() => {
@@ -261,9 +278,8 @@ const VentasPage = () => {
             await updateDoc(clienteDocRef, updates);
           }
 
-          setClientes(prevClientes => prevClientes.map(c => 
-            c.id === clienteId ? { ...c, estadoLavado: 'En preparación' } : c
-          ));
+          // No es necesario actualizar el estado local 'clientes' aquí, 
+          // ya que los cambios se reflejarán al navegar o recargar.
         }
         toast.success(`Venta #${proximoTicket} registrada con éxito.`);
       } catch (error) {
@@ -349,6 +365,27 @@ const VentasPage = () => {
     if (cajaActual) { return (<div className="caja-status-indicator open"><FaCheckCircle /><span>Caja Abierta</span></div>); }
     return (<div className="caja-status-indicator closed"><FaTimesCircle /><span>Caja Cerrada</span></div>);
   };
+  
+  const handleSaveChangesOnDetails = async (ventaId: string, nuevasObservaciones: string) => {
+    try {
+      const ventaDocRef = doc(db, 'ventas', ventaId);
+      await updateDoc(ventaDocRef, {
+        observaciones: nuevasObservaciones
+      });
+      setVentas(prevVentas =>
+        prevVentas.map(v =>
+          v.id === ventaId ? { ...v, observaciones: nuevasObservaciones } : v
+        )
+      );
+      if (ventaSeleccionada) {
+        setVentaSeleccionada({ ...ventaSeleccionada, observaciones: nuevasObservaciones });
+      }
+      toast.success("Observaciones actualizadas con éxito.");
+    } catch (error) {
+      console.error("Error al actualizar observaciones:", error);
+      toast.error("No se pudieron guardar los cambios.");
+    }
+  };
 
   if (loadingCaja) {
     return <Spinner />;
@@ -386,6 +423,8 @@ const VentasPage = () => {
                 className="filter-input"
                 value={pendingTicketSearch}
                 onChange={e => setPendingTicketSearch(e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
               />
             </div>
             {loadingPendientes ? <Spinner/> : (
@@ -395,6 +434,7 @@ const VentasPage = () => {
                   clientes={clientes}
                   onProcesar={handleProcesarVentaPendiente}
                   onAnular={handleAnularVentaPendiente}
+                  onVerDetalles={handleOpenDetailsModal}
                 />
               ) : (
                 <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay ventas pendientes en cuenta corriente.</p>
@@ -415,6 +455,8 @@ const VentasPage = () => {
             className="filter-input"
             value={ticketSearch}
             onChange={e => setTicketSearch(e.target.value)}
+            inputMode="numeric"
+            pattern="[0-9]*"
           />
           <input 
             type="date" 
@@ -462,9 +504,17 @@ const VentasPage = () => {
         />
       </Modal>
       
-      {ventaSeleccionada && (
-        <Modal isOpen={isDetailsModalOpen} onClose={handleCloseDetailsModal} title={`Detalles de la Venta - Ticket #${ventaSeleccionada.nroTicket}`}>
-          <VentaDetallesModal venta={ventaSeleccionada} cliente={clientes.find(c => c.id === ventaSeleccionada.clienteId)} />
+     {ventaSeleccionada && (
+        <Modal 
+          isOpen={isDetailsModalOpen} 
+          onClose={handleCloseDetailsModal} 
+          title={`Detalles de la Venta - Ticket #${ventaSeleccionada.nroTicket}`}
+        >
+          <VentaDetallesModal 
+            venta={ventaSeleccionada}
+            cliente={clientes.find(c => c.id === ventaSeleccionada.clienteId)}
+            onSaveChanges={handleSaveChangesOnDetails}
+          />
         </Modal>
       )}
 

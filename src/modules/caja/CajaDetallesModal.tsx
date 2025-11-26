@@ -11,12 +11,16 @@ const CajaDetallesModal: React.FC<CajaDetallesModalProps> = ({ registro }) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
   };
 
+  // Verificamos si hubo egresos (retiros) para mostrar la sección
   const huboEgresos = (registro.totalRetirosEfectivo || 0) > 0 || (registro.totalRetirosTransferencia || 0) > 0;
+  
+  // Verificamos si hubo ingresos manuales para mostrar la sección
+  const huboIngresosManuales = (registro.totalIngresosManualesEfectivo || 0) > 0 || (registro.totalIngresosManualesTransferencia || 0) > 0;
 
   return (
     <div className="caja-detalles-container">
       <div className="detalle-seccion">
-        <h4>Resumen de Ingresos</h4>
+        <h4>Resumen de Ingresos (Ventas)</h4>
         <table className="detalles-table">
           <tbody>
             <tr>
@@ -43,7 +47,26 @@ const CajaDetallesModal: React.FC<CajaDetallesModalProps> = ({ registro }) => {
         </table>
       </div>
 
-      {/* --- NUEVA SECCIÓN: Se muestra solo si hubo retiros --- */}
+      {/* --- NUEVA SECCIÓN: Se muestra solo si hubo ingresos manuales --- */}
+      {huboIngresosManuales && (
+        <div className="detalle-seccion">
+          <h4>Resumen de Ingresos (Manuales)</h4>
+          <table className="detalles-table">
+            <tbody>
+              <tr>
+                <td>Ingresos Manuales en Efectivo:</td>
+                <td>{formatMoneda(registro.totalIngresosManualesEfectivo)}</td>
+              </tr>
+              <tr>
+                <td>Ingresos Manuales por Transferencia:</td>
+                <td>{formatMoneda(registro.totalIngresosManualesTransferencia)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Sección de Egresos (ya existente) */}
       {huboEgresos && (
         <div className="detalle-seccion">
           <h4>Resumen de Egresos (Retiros)</h4>
