@@ -1,5 +1,5 @@
 import type { Venta, Cliente } from '../../types';
-import { FaCheck, FaTimes, FaEye } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaEye, FaPrint } from 'react-icons/fa';
 // Reutilizaremos los estilos de la tabla de premios para el diseño responsivo
 import '../fidelizacion/PremiosTable.css';
 
@@ -9,9 +9,10 @@ interface CuentaCorrienteTableProps {
   onProcesar: (venta: Venta) => void;
   onAnular: (venta: Venta) => void;
   onVerDetalles: (venta: Venta) => void; // Prop añadida
+  onImprimirTicket: (venta: Venta) => void;
 }
 
-const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, clientes, onProcesar, onAnular, onVerDetalles }) => {
+const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, clientes, onProcesar, onAnular, onVerDetalles, onImprimirTicket }) => {
   const getNombreCliente = (clienteId: string | null) => {
     if (!clienteId) return 'Cliente Anónimo';
     const cliente = clientes.find(c => c.id === clienteId);
@@ -46,6 +47,9 @@ const CuentaCorrienteTable: React.FC<CuentaCorrienteTableProps> = ({ ventas, cli
                 >
                   <FaEye /> <span>Ver</span>
                 </button>
+                <button className="secondary-button small-button" onClick={() => onImprimirTicket(venta)}>
+              <FaPrint /> <span>Ticket</span>
+            </button>
                 <button 
                   className="secondary-button small-button toggle-btn activar"
                   onClick={() => onProcesar(venta)}

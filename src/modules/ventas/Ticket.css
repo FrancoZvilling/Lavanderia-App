@@ -1,0 +1,87 @@
+/* Contenedor para renderizar fuera de pantalla */
+.ticket-wrapper {
+  position: fixed;
+  top: 0;
+  left: -9999px;
+  opacity: 0;
+}
+
+.ticket-container {
+  width: 320px;
+  background-color: #fff;
+  color: #000;
+  font-family: 'Courier New', Courier, monospace;
+  padding: 20px;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.ticket-header {
+  text-align: center;
+  border-bottom: 2px dashed #000;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.ticket-logo {
+  width: 50px;
+  height: 50px;
+}
+
+.ticket-title {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.info-empresa {
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.ticket-body {
+  font-size: 0.9rem;
+}
+
+.ticket-info-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ticket-info-row strong {
+  font-size: 1.2rem;
+}
+
+.ticket-separator {
+  border: none;
+  border-top: 1px dashed #ccc;
+  margin: 10px 0;
+}
+
+.ticket-total-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.ticket-footer {
+  text-align: center;
+  border-top: 2px dashed #000;
+  padding-top: 15px;
+  margin-top: 20px;
+  font-size: 0.8rem;
+}
+
+.ticket-footer p {
+  margin: 0 0 5px 0;
+}

@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { collection, getDocs, addDoc, Timestamp, query, where, orderBy, limit, startAfter, increment, getDoc, doc, updateDoc, runTransaction, onSnapshot, deleteDoc } from 'firebase/firestore';
-import type { DocumentData, QueryConstraint} from 'firebase/firestore';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { collection, getDocs, addDoc, Timestamp, query, where, orderBy, limit, startAfter, increment, getDoc, doc, updateDoc, onSnapshot, deleteDoc, runTransaction } from 'firebase/firestore';
+import type { DocumentData, QueryConstraint } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
+import { toPng } from 'html-to-image';
 import { FaPlus, FaTimesCircle, FaCheckCircle, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { useCaja } from '../context/CajaContext';
 import useDebounce from '../hooks/useDebounce';
@@ -13,6 +14,7 @@ import Modal from '../components/Modal';
 import AddSaleForm from '../modules/ventas/AddSaleForm';
 import VentaDetallesModal from '../modules/ventas/VentaDetallesModal';
 import Spinner from '../components/Spinner';
+import Ticket from '../modules/ventas/Ticket';
 import type { Venta, TipoDePrenda, Cliente, MetodoDePago } from '../types';
 import './VentasPage.css';
 
@@ -55,6 +57,10 @@ const VentasPage = () => {
 
   const [proximoTicket, setProximoTicket] = useState<string | null>(null);
 
+  // Estados para la generación del ticket
+  const [ticketData, setTicketData] = useState<Venta | null>(null);
+  const ticketRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const fetchStaticData = async () => {
       try {
@@ -88,23 +94,21 @@ const VentasPage = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- useEffect REESTRUCTURADO para usar onSnapshot ---
   useEffect(() => {
     setLoading(true);
     setHasMore(true);
 
     let queryConstraints: QueryConstraint[] = [];
     
-    // Si hay una búsqueda de ticket, tiene prioridad y no usamos listener
     if (debouncedTicketSearch.trim() !== '') {
       queryConstraints.push(where('nroTicket', '==', debouncedTicketSearch.trim().padStart(6, '0')));
-      queryConstraints.push(limit(PAGE_SIZE)); // Limitamos por si acaso
+      queryConstraints.push(limit(PAGE_SIZE));
       
       const q = query(collection(db, 'ventas'), ...queryConstraints);
       getDocs(q).then(querySnapshot => {
         const ventasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Venta));
         setVentas(ventasData);
-        setHasMore(false); // La búsqueda por ticket no tiene paginación
+        setHasMore(false);
         setLoading(false);
       }).catch(error => {
         console.error("Error en búsqueda por ticket:", error);
@@ -112,10 +116,9 @@ const VentasPage = () => {
         setLoading(false);
       });
 
-      return; // Salimos del efecto para no activar el listener
+      return;
     }
     
-    // Lógica del listener para filtros de fecha y cliente
     if (!debouncedFilterDate) {
       setLoading(false);
       return;
@@ -153,6 +156,37 @@ const VentasPage = () => {
 
     return () => unsubscribe();
   }, [debouncedFilterDate, debouncedFilterClientId, debouncedTicketSearch]);
+
+  // useEffect para la generación del ticket
+  useEffect(() => {
+    if (ticketData && ticketRef.current) {
+      const generarYDescargar = async () => {
+        const node = ticketRef.current?.querySelector('.ticket-container');
+        if (!node) return;
+
+        toast.info("Generando ticket...");
+        try {
+          const dataUrl = await toPng(node as HTMLElement, { 
+            cacheBust: true, 
+            backgroundColor: '#ffffff',
+            pixelRatio: 3,
+          });
+          
+          const link = document.createElement('a');
+          link.download = `ticket-${ticketData.nroTicket}.png`;
+          link.href = dataUrl;
+          link.click();
+
+          setTicketData(null);
+        } catch (err) {
+          console.error('Error al generar el ticket:', err);
+          toast.error('Hubo un problema al generar el ticket.');
+          setTicketData(null);
+        }
+      };
+      setTimeout(generarYDescargar, 500);
+    }
+  }, [ticketData]);
 
   const filteredVentasPendientes = useMemo(() => {
     if (!pendingTicketSearch.trim()) {
@@ -200,24 +234,22 @@ const VentasPage = () => {
     }
   };
 
-  const handleOpenAddSaleModal = async () => {
+   const handleOpenAddSaleModal = async () => {
+    if (!cajaActual) {
+      toast.warn("La caja está cerrada. Solo se podrán registrar ventas a Cuenta Corriente.", { autoClose: 5000 });
+    }
     try {
       const counterRef = doc(db, 'configuracion', 'counters');
-      
       const newTicketNumber = await runTransaction(db, async (transaction) => {
         const counterDoc = await transaction.get(counterRef);
-        if (!counterDoc.exists()) {
-          throw "El documento de contadores no existe. Créelo en Firestore: configuracion/counters";
-        }
+        if (!counterDoc.exists()) { throw "El documento de contadores no existe."; }
         const newNumber = counterDoc.data().ultimoTicket + 1;
         transaction.update(counterRef, { ultimoTicket: newNumber });
         return newNumber;
       });
-
       const nroTicketFormateado = String(newTicketNumber).padStart(6, '0');
       setProximoTicket(nroTicketFormateado);
       setIsAddModalOpen(true);
-
     } catch (error) {
       console.error("Error al generar número de ticket:", error);
       toast.error("No se pudo generar un nuevo número de ticket.");
@@ -231,13 +263,22 @@ const VentasPage = () => {
     }
 
     const ventaConTicket = { ...nuevaVentaData, nroTicket: proximoTicket };
+    const clienteId = ventaConTicket.clienteId;
+
+    if (clienteId) {
+      try {
+        const clienteDocRef = doc(db, 'clientes', clienteId);
+        await updateDoc(clienteDocRef, { estadoLavado: 'En preparación' });
+        setClientes(prevClientes => prevClientes.map(c => c.id === clienteId ? { ...c, estadoLavado: 'En preparación' } : c));
+      } catch (error) {
+        console.error("Error al actualizar el estado del cliente:", error);
+        toast.error("Hubo un problema al actualizar el estado del cliente, pero la venta se registrará.");
+      }
+    }
 
     if (ventaConTicket.metodoDePago === 'Cuenta Corriente') {
       try {
-        await addDoc(collection(db, 'ventasPendientes'), {
-          ...ventaConTicket,
-          fecha: Timestamp.fromDate(new Date()),
-        });
+        await addDoc(collection(db, 'ventasPendientes'), { ...ventaConTicket, fecha: Timestamp.fromDate(new Date()) });
         toast.success(`Ticket #${proximoTicket} enviado a Cuenta Corriente.`);
       } catch (error) {
         console.error("Error al guardar en cuenta corriente:", error);
@@ -245,41 +286,25 @@ const VentasPage = () => {
       }
     } else {
       if (!cajaActual) {
-        toast.error("La caja está cerrada. No se pueden registrar ventas pagadas.");
+        toast.error("La caja está cerrada. No se pueden registrar ventas pagadas. Seleccione 'Cuenta Corriente'.");
         return;
       }
       try {
-        await addDoc(collection(db, 'ventas'), {
-          ...ventaConTicket,
-          fecha: Timestamp.fromDate(new Date()),
-          cajaId: cajaActual.id,
-        });
-        
-        const clienteId = ventaConTicket.clienteId;
+        await addDoc(collection(db, 'ventas'), { ...ventaConTicket, fecha: Timestamp.fromDate(new Date()), cajaId: cajaActual.id });
         if (clienteId) {
           const clienteDocRef = doc(db, 'clientes', clienteId);
-          const updates: { [key: string]: any } = { estadoLavado: 'En preparación' };
-
           const configDocRef = doc(db, 'configuracion', 'puntos');
           const configSnapshot = await getDoc(configDocRef);
-          
           if (configSnapshot.exists()) {
             const { puntosOtorgados, montoRequerido } = configSnapshot.data();
             if (puntosOtorgados && montoRequerido > 0) {
               const puntosGanados = Math.floor(ventaConTicket.montoTotal / montoRequerido * puntosOtorgados);
               if (puntosGanados > 0) {
-                updates.puntos = increment(puntosGanados);
+                await updateDoc(clienteDocRef, { puntos: increment(puntosGanados) });
                 toast.info(`${puntosGanados} puntos sumados al cliente.`);
               }
             }
           }
-          
-          if (Object.keys(updates).length > 0) {
-            await updateDoc(clienteDocRef, updates);
-          }
-
-          // No es necesario actualizar el estado local 'clientes' aquí, 
-          // ya que los cambios se reflejarán al navegar o recargar.
         }
         toast.success(`Venta #${proximoTicket} registrada con éxito.`);
       } catch (error) {
@@ -287,7 +312,6 @@ const VentasPage = () => {
         toast.error("No se pudo registrar la venta.");
       }
     }
-    
     setIsAddModalOpen(false);
     setProximoTicket(null);
   };
@@ -312,11 +336,9 @@ const VentasPage = () => {
     }
   };
 
-  const handleConfirmarPago = async (metodoDePagoFinal: Exclude<MetodoDePago, 'Cuenta Corriente'>) => {
+ const handleConfirmarPago = async (metodoDePagoFinal: Exclude<MetodoDePago, 'Cuenta Corriente'>) => {
     if (!ventaParaProcesar || !cajaActual) return;
-
     const { id: idVentaPendiente, ...datosVenta } = ventaParaProcesar;
-
     try {
       await addDoc(collection(db, 'ventas'), {
         ...datosVenta,
@@ -324,13 +346,9 @@ const VentasPage = () => {
         fecha: Timestamp.fromDate(new Date()),
         cajaId: cajaActual.id,
       });
-
       await deleteDoc(doc(db, 'ventasPendientes', idVentaPendiente));
-      
       if (datosVenta.clienteId) {
         const clienteDocRef = doc(db, 'clientes', datosVenta.clienteId);
-        const updates: { [key: string]: any } = { estadoLavado: 'En preparación' };
-
         const configDocRef = doc(db, 'configuracion', 'puntos');
         const configSnapshot = await getDoc(configDocRef);
         if (configSnapshot.exists()) {
@@ -338,25 +356,42 @@ const VentasPage = () => {
           if (puntosOtorgados && montoRequerido > 0) {
             const puntosGanados = Math.floor(datosVenta.montoTotal / montoRequerido * puntosOtorgados);
             if (puntosGanados > 0) {
-              updates.puntos = increment(puntosGanados);
+              await updateDoc(clienteDocRef, { puntos: increment(puntosGanados) });
               toast.info(`${puntosGanados} puntos sumados al cliente.`);
             }
           }
         }
-        if (Object.keys(updates).length > 0) {
-          await updateDoc(clienteDocRef, updates);
-        }
       }
-
       toast.success(`Ticket #${datosVenta.nroTicket} pagado y procesado.`);
       setIsProcesarModalOpen(false);
       setVentaParaProcesar(null);
-
     } catch (error) {
+      console.error("Error al procesar el pago:", error);
       toast.error("Ocurrió un error al procesar el pago.");
     }
   };
   
+ const handleCreateCliente = async (nombreCompleto: string, telefono: string, dni: string, descuento: number): Promise<Cliente | null> => {
+    try {
+      const nombreSplit = nombreCompleto.split(' ');
+      const nombre = nombreSplit[0] || '';
+      const apellido = nombreSplit.slice(1).join(' ') || '';
+      const newClientData = {
+        nombre, apellido, telefono, documento: dni, contacto: '', descuentoFijo: descuento, puntos: 0,
+        estadoLavado: 'Entregado' as const,
+      };
+      const docRef = await addDoc(collection(db, 'clientes'), newClientData);
+      const nuevoCliente: Cliente = { id: docRef.id, ...newClientData };
+      setClientes(prev => [...prev, nuevoCliente].sort((a,b) => (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre)));
+      toast.success(`Cliente "${nombreCompleto}" creado con éxito.`);
+      return nuevoCliente;
+    } catch (error) {
+      console.error("Error al crear el cliente:", error);
+      toast.error("No se pudo crear el nuevo cliente.");
+      return null;
+    }
+  };
+
   const handleOpenDetailsModal = (venta: Venta) => { setVentaSeleccionada(venta); setIsDetailsModalOpen(true); };
   const handleCloseDetailsModal = () => { setIsDetailsModalOpen(false); setVentaSeleccionada(null); };
 
@@ -387,6 +422,10 @@ const VentasPage = () => {
     }
   };
 
+  const handleImprimirTicket = (venta: Venta) => {
+    setTicketData(venta);
+  };
+
   if (loadingCaja) {
     return <Spinner />;
   }
@@ -399,6 +438,8 @@ const VentasPage = () => {
           <button 
             className="primary-button" 
             onClick={handleOpenAddSaleModal}
+            disabled={!cajaActual}
+            title={!cajaActual ? "Debe abrir la caja para registrar cualquier tipo de venta" : "Registrar nueva venta"}
           >
             <FaPlus /> <span>Registrar Nueva Venta</span>
           </button>
@@ -435,6 +476,7 @@ const VentasPage = () => {
                   onProcesar={handleProcesarVentaPendiente}
                   onAnular={handleAnularVentaPendiente}
                   onVerDetalles={handleOpenDetailsModal}
+                  onImprimirTicket={handleImprimirTicket}
                 />
               ) : (
                 <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay ventas pendientes en cuenta corriente.</p>
@@ -479,7 +521,12 @@ const VentasPage = () => {
       
         {loading ? <Spinner /> : 
           <>
-            <VentasTable ventas={ventas} clientes={clientes} onVerDetalles={handleOpenDetailsModal} />
+            <VentasTable 
+              ventas={ventas} 
+              clientes={clientes} 
+              onVerDetalles={handleOpenDetailsModal}
+              onImprimirTicket={handleImprimirTicket}
+            />
             {ventas.length === 0 &&
               <p style={{textAlign: 'center', color: '#7f8c8d', padding: '20px'}}>No se encontraron ventas para los filtros seleccionados.</p>
             }
@@ -501,6 +548,7 @@ const VentasPage = () => {
             tiposDePrenda={tiposDePrenda} 
             onClose={() => { setIsAddModalOpen(false); setProximoTicket(null); }}
             onSave={handleSaveVenta} 
+            onCreateCliente={handleCreateCliente}
         />
       </Modal>
       
@@ -527,6 +575,17 @@ const VentasPage = () => {
           />
         </Modal>
       )}
+
+      <div ref={ticketRef}>
+        {ticketData && (
+          <div className="ticket-wrapper">
+            <Ticket 
+              venta={ticketData}
+              cliente={clientes.find(c => c.id === ticketData.clienteId)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

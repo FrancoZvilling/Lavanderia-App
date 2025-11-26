@@ -12,6 +12,7 @@ export interface Cliente {
   documento: string;
   contacto: string;
   telefono: string;
+  descuentoFijo?: number;
   puntos: number;
   estadoLavado: EstadoLavado;
 }

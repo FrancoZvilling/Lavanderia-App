@@ -1,15 +1,16 @@
 import type { Venta, Cliente } from '../../types';
 import type { Timestamp } from 'firebase/firestore';
-import { FaEye } from 'react-icons/fa'; // Importamos un icono para el botón
+import { FaEye, FaPrint } from 'react-icons/fa'; // Importamos un icono para el botón
 import './VentasTable.css';
 
 interface VentasTableProps {
   ventas: Venta[];
   clientes: Cliente[];
   onVerDetalles: (venta: Venta) => void;
+  onImprimirTicket: (venta: Venta) => void;
 }
 
-const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes, onVerDetalles }) => {
+const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes, onVerDetalles, onImprimirTicket }) => {
   const getNombreCliente = (clienteId: string | null) => {
     if (clienteId === null) return <em>Cliente Anónimo</em>;
     const cliente = clientes.find(c => c.id === clienteId);
@@ -62,6 +63,9 @@ const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes, onVerDetall
                 >
                   <FaEye /> <span>Ver</span>
                 </button>
+                <button className="secondary-button small-button" onClick={() => onImprimirTicket(venta)}>
+              <FaPrint /> <span>Ticket</span>
+            </button>
               </td>
             </tr>
           ))}

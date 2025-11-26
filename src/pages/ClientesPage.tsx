@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import ClientCard from '../modules/clientes/ClientCard';
 import Modal from '../components/Modal';
 import ChangeStatusModal from '../modules/clientes/ChangeStatusModal';
+import EditClientFormModal from '../modules/clientes/EditClientFormModal';
 import type { Cliente, EstadoLavado } from '../types';
 import './ClientesPage.css';
 import './VentasPage.css';
@@ -14,8 +15,14 @@ const ClientesPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstadoLavado | 'Todos'>('Todos');
+  
+  // Estados para el modal de cambio de estado
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  
+  // Estados para el modal de edición
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
   useEffect(() => {
     const fetchClientes = async () => {
@@ -23,18 +30,16 @@ const ClientesPage = () => {
         const clientesCollectionRef = collection(db, 'clientes');
         const querySnapshot = await getDocs(clientesCollectionRef);
         
-        // --- CORRECCIÓN CLAVE APLICADA AQUÍ ---
-        // Construimos el objeto de forma explícita, incluyendo los nuevos campos.
         const clientesData = querySnapshot.docs.map(doc => {
           const data = doc.data();
-          // Creamos una variable 'cliente' con el tipo explícito para mayor seguridad
           const cliente: Cliente = {
             id: doc.id,
             nombre: data.nombre,
             apellido: data.apellido,
             contacto: data.contacto,
-            documento: data.documento, // Leemos el DNI del documento de Firebase
-            telefono: data.telefono,   // Leemos el teléfono del documento de Firebase
+            documento: data.documento,
+            telefono: data.telefono,
+            descuentoFijo: data.descuentoFijo, // Leemos el descuento
             puntos: data.puntos,
             estadoLavado: data.estadoLavado,
           };
@@ -63,6 +68,7 @@ const ClientesPage = () => {
     });
   }, [searchTerm, statusFilter, clientes]);
 
+  // --- LÓGICA PARA EL MODAL DE CAMBIO DE ESTADO ---
   const handleOpenStatusModal = (cliente: Cliente) => {
     setClienteSeleccionado(cliente);
     setIsStatusModalOpen(true);
@@ -75,26 +81,46 @@ const ClientesPage = () => {
 
   const handleUpdateStatus = async (newStatus: EstadoLavado) => {
     if (!clienteSeleccionado) return;
-
     const clienteDocRef = doc(db, 'clientes', clienteSeleccionado.id);
-
     try {
-      await updateDoc(clienteDocRef, {
-        estadoLavado: newStatus
-      });
-
+      await updateDoc(clienteDocRef, { estadoLavado: newStatus });
       setClientes(prevClientes =>
         prevClientes.map(c =>
           c.id === clienteSeleccionado.id ? { ...c, estadoLavado: newStatus } : c
         )
       );
-
       toast.success(`Estado de ${clienteSeleccionado.nombre} actualizado a "${newStatus}".`);
     } catch (error) {
       console.error("Error al actualizar el estado:", error);
       toast.error("No se pudo actualizar el estado del cliente.");
     } finally {
       handleCloseStatusModal();
+    }
+  };
+  
+  // --- LÓGICA PARA EL MODAL DE EDICIÓN DE CLIENTE ---
+  const handleOpenEditModal = (cliente: Cliente) => {
+    setEditingCliente(cliente);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingCliente(null);
+  };
+
+  const handleUpdateCliente = async (clienteId: string, updatedData: Partial<Cliente>) => {
+    try {
+      const clienteDocRef = doc(db, 'clientes', clienteId);
+      await updateDoc(clienteDocRef, updatedData);
+      
+      setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, ...updatedData } : c));
+      
+      handleCloseEditModal();
+      toast.success("Datos del cliente actualizados con éxito.");
+    } catch (error) {
+      console.error("Error al actualizar cliente:", error);
+      toast.error("Error al actualizar los datos del cliente.");
     }
   };
   
@@ -123,7 +149,12 @@ const ClientesPage = () => {
 
       <div className="client-grid">
         {filteredClientes.map(cliente => (
-          <ClientCard key={cliente.id} cliente={cliente} onStatusChangeClick={handleOpenStatusModal} />
+          <ClientCard 
+            key={cliente.id} 
+            cliente={cliente} 
+            onStatusChangeClick={handleOpenStatusModal}
+            onEditClick={handleOpenEditModal}
+          />
         ))}
         {filteredClientes.length === 0 && !loading && (
             <p className="no-results">No se encontraron clientes en la base de datos.</p>
@@ -139,6 +170,20 @@ const ClientesPage = () => {
           <ChangeStatusModal
             currentStatus={clienteSeleccionado.estadoLavado}
             onStatusSelect={handleUpdateStatus}
+          />
+        </Modal>
+      )}
+
+      {editingCliente && (
+        <Modal 
+          isOpen={isEditModalOpen} 
+          onClose={handleCloseEditModal} 
+          title={`Editar Cliente: ${editingCliente.nombre} ${editingCliente.apellido}`}
+        >
+          <EditClientFormModal 
+            cliente={editingCliente}
+            onClose={handleCloseEditModal}
+            onSave={handleUpdateCliente}
           />
         </Modal>
       )}
