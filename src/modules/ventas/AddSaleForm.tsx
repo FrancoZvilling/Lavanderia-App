@@ -12,15 +12,16 @@ interface VentaItem {
 
 type SelectOption = { value: string; label: string };
 
-// --- CORRECCIÓN: La firma de onSave ahora excluye 'cajaId' ---
+// La firma ahora espera el 'nroTicket' y onSave se ha simplificado
 interface AddSaleFormProps {
+  nroTicket: string | null;
   clientes: Cliente[];
   tiposDePrenda: TipoDePrenda[];
   onClose: () => void;
-  onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId'>) => void;
+  onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'>) => void;
 }
 
-const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onClose, onSave }) => {
+const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDePrenda, onClose, onSave }) => {
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [items, setItems] = useState<VentaItem[]>([{ id: Date.now(), tipoPrendaId: null, cantidad: 1 }]);
   const [montoTotal, setMontoTotal] = useState<number>(0);
@@ -69,8 +70,8 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
     if (items.some(item => !item.tipoPrendaId || item.cantidad === '' || item.cantidad <= 0)) { alert('Por favor, complete todas las prendas con una cantidad válida.'); return; }
     if (montoTotal <= 0) { alert('El monto total debe ser mayor a cero.'); return; }
     
-    // --- CORRECCIÓN: El tipo del objeto ahora coincide con la nueva firma de onSave ---
-    const nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId'> = {
+    // El objeto ya no contiene nroTicket porque el padre se encarga de él
+    const nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'> = {
       clienteId: isAnonymous ? null : selectedClientId,
       montoTotal: montoTotal,
       metodoDePago: metodoDePago,
@@ -90,6 +91,13 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ clientes, tiposDePrenda, onCl
 
   return (
     <form className="add-sale-form" onSubmit={(e) => e.preventDefault()}>
+      {/* --- AÑADIDO: Muestra el número de ticket --- */}
+      {nroTicket && (
+        <div className="ticket-display">
+          Ticket N°: <strong>{nroTicket}</strong>
+        </div>
+      )}
+      
       <div className="form-group-inline">
         <input type="checkbox" id="anonymous-sale" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)}/>
         <label htmlFor="anonymous-sale">Venta Anónima (Cliente no registrado)</label>

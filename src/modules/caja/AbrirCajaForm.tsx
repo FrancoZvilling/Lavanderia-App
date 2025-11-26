@@ -1,33 +1,110 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Select, { type SingleValue } from 'react-select';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebaseConfig';
+import bcrypt from 'bcryptjs';
 import type { Empleado } from '../../types';
 import '../ventas/AddSaleForm.css';
 import './CerrarCajaForm.css';
 
-// Tipo para las opciones del selector de empleados
 type SelectOption = { value: string; label: string };
 
-// La interfaz de props ahora necesita la lista de empleados y una función onConfirm actualizada
 interface AbrirCajaFormProps {
   onClose: () => void;
-  onConfirm: (montoInicial: number, empleado: { id: string; nombre: string } | null) => void;
+  onConfirm: (montoInicial: number, empleado: Empleado, pin: string) => void;
   montoCierreAnterior: number | null;
   empleados: Empleado[];
 }
 
 const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, montoCierreAnterior, empleados }) => {
   const [monto, setMonto] = useState<string>('');
-  // Nuevo estado para guardar el empleado seleccionado
-  const [selectedEmpleado, setSelectedEmpleado] = useState<SelectOption | null>(null);
+  const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
+  const [pin, setPin] = useState<string>('');
+  const [pinHash, setPinHash] = useState<string | null>(null);
+  const [showPinInput, setShowPinInput] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Convertimos la lista de empleados al formato que react-select necesita
   const opcionesEmpleado = empleados.map(e => ({ value: e.id, label: e.nombreCompleto }));
+
+  // useEffect para buscar el pinHash cuando se selecciona un empleado
+  useEffect(() => {
+    const fetchPinHash = async () => {
+      if (selectedEmpleado) {
+        setLoading(true);
+        setError('');
+        const empleadoDocRef = doc(db, 'empleados', selectedEmpleado.id);
+        try {
+          const docSnap = await getDoc(empleadoDocRef);
+          if (docSnap.exists() && docSnap.data().pinHash) {
+            setPinHash(docSnap.data().pinHash);
+            setShowPinInput(true);
+          } else {
+            setPinHash(null);
+            setShowPinInput(false);
+            setError('Este empleado no tiene un PIN configurado. Por favor, créelo desde el módulo de Configuración.');
+          }
+        } catch (err) {
+            setError('No se pudo verificar el PIN. Revise las reglas de seguridad.');
+        } finally {
+            setLoading(false);
+        }
+      } else {
+        setShowPinInput(false);
+        setPinHash(null);
+      }
+    };
+    setError('');
+    setPin('');
+    fetchPinHash();
+  }, [selectedEmpleado]);
+
+  const handleSelectEmpleado = (option: SingleValue<SelectOption>) => {
+    const empleado = empleados.find(e => e.id === option?.value) || null;
+    setSelectedEmpleado(empleado);
+  };
+
+  const handleSubmit = () => {
+    setError('');
+    setLoading(true);
+
+    const montoNumerico = parseFloat(monto);
+    if (isNaN(montoNumerico) || montoNumerico < 0) {
+      setError('Por favor, ingrese un monto válido.');
+      setLoading(false);
+      return;
+    }
+    if (!selectedEmpleado) {
+      setError('Por favor, seleccione un empleado.');
+      setLoading(false);
+      return;
+    }
+    if (showPinInput && pin.length !== 4) {
+      setError('El PIN debe tener 4 dígitos.');
+      setLoading(false);
+      return;
+    }
+    if (showPinInput && pinHash) {
+      const isPinValid = bcrypt.compareSync(pin, pinHash);
+      if (!isPinValid) {
+        setError('PIN incorrecto. Intente de nuevo.');
+        setLoading(false);
+        return;
+      }
+    } else {
+        // Este error se mostrará si el empleado no tiene PIN configurado
+        setError('No se pudo verificar el PIN. Contacte al administrador.');
+        setLoading(false);
+        return;
+    }
+
+    onConfirm(montoNumerico, selectedEmpleado, pin);
+    setLoading(false);
+  };
 
   const diferencia = useMemo(() => {
     if (montoCierreAnterior === null || monto === '') return null;
-    const montoNumerico = parseFloat(monto);
-    if (isNaN(montoNumerico)) return null;
-    return montoNumerico - montoCierreAnterior;
+    return parseFloat(monto) - montoCierreAnterior;
   }, [monto, montoCierreAnterior]);
 
   const getDiferenciaClass = (val: number | null) => {
@@ -38,21 +115,6 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
   
   const formatMoneda = (val: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(val);
 
-  const handleSubmit = () => {
-    const montoNumerico = parseFloat(monto);
-    if (isNaN(montoNumerico) || montoNumerico < 0) {
-      alert('Por favor, ingrese un monto válido.');
-      return;
-    }
-    // Añadimos la validación para el empleado
-    if (!selectedEmpleado) {
-      alert('Por favor, seleccione un empleado.');
-      return;
-    }
-    // Llamamos a onConfirm con ambos valores: monto y empleado
-    onConfirm(montoNumerico, { id: selectedEmpleado.value, nombre: selectedEmpleado.label });
-  };
-
   return (
     <form className="add-sale-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
       {montoCierreAnterior !== null && (
@@ -62,17 +124,33 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
         </div>
       )}
 
-      {/* --- NUEVO CAMPO PARA SELECCIONAR EMPLEADO --- */}
       <div className="form-group">
         <label htmlFor="empleado">Encargado de Apertura</label>
         <Select 
             id="empleado"
             options={opcionesEmpleado}
+            onChange={handleSelectEmpleado}
             placeholder="Seleccione su nombre..."
-            value={selectedEmpleado}
-            onChange={(option: SingleValue<SelectOption>) => setSelectedEmpleado(option)}
+            isLoading={loading}
         />
       </div>
+
+      {showPinInput && (
+        <div className="form-group">
+          <label htmlFor="pin">PIN de Seguridad (4 dígitos)</label>
+          <input 
+            type="password" 
+            id="pin" 
+            value={pin} 
+            onChange={e => setPin(e.target.value)} 
+            maxLength={4}
+            inputMode="numeric"
+            autoComplete="off"
+            required
+            autoFocus
+          />
+        </div>
+      )}
       
       <div className="form-group">
         <label htmlFor="montoInicial">Monto Inicial en Caja</label>
@@ -82,6 +160,7 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
           placeholder="Ingrese el dinero contado"
           value={monto}
           onChange={(e) => setMonto(e.target.value)}
+          required
         />
       </div>
 
@@ -94,12 +173,14 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
         </div>
       )}
 
+      {error && <p className="error-message" style={{marginTop: '15px'}}>{error}</p>}
+
       <div className="form-actions">
         <button type="button" className="secondary-button" onClick={onClose}>
           Cancelar
         </button>
-        <button type="submit" className="primary-button">
-          Confirmar Apertura
+        <button type="submit" className="primary-button" disabled={!selectedEmpleado || loading}>
+          {loading ? 'Verificando...' : 'Confirmar Apertura'}
         </button>
       </div>
     </form>

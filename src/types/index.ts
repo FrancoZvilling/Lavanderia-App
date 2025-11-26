@@ -41,6 +41,7 @@ export interface Venta {
 export interface Empleado {
   id: string;
   nombreCompleto: string;
+  pinHash?: string;
 }
 
 export interface MotivoRetiro {

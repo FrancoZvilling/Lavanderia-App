@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, query, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
+import bcrypt from 'bcryptjs';
 import type { Premio, TipoDePrenda, Empleado } from '../types';
 import PremiosTable from '../modules/fidelizacion/PremiosTable';
 import PremioFormModal from '../modules/fidelizacion/PremioFormModal';
@@ -9,6 +10,7 @@ import PrendasTable from '../modules/configuracion/PrendasTable';
 import PrendaFormModal from '../modules/configuracion/PrendaFormModal';
 import EmpleadosTable from '../modules/configuracion/EmpleadosTable';
 import EmpleadoFormModal from '../modules/configuracion/EmpleadoFormModal';
+import PinFormModal from '../modules/configuracion/PinFormModal';
 import Modal from '../components/Modal';
 import { FaPlus } from 'react-icons/fa';
 import './VentasPage.css';
@@ -26,6 +28,8 @@ const ConfiguracionPage = () => {
   const [editingPrenda, setEditingPrenda] = useState<TipoDePrenda | null>(null);
   const [isEmpleadoModalOpen, setIsEmpleadoModalOpen] = useState(false);
   const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [empleadoParaPin, setEmpleadoParaPin] = useState<Empleado | null>(null);
 
   const [puntosOtorgados, setPuntosOtorgados] = useState<string>('');
   const [montoRequerido, setMontoRequerido] = useState<string>('');
@@ -61,7 +65,6 @@ const ConfiguracionPage = () => {
     fetchConfigData();
   }, []);
 
-  // --- LÓGICA PARA GESTIONAR PRENDAS ---
   const handleOpenPrendaModal = (prenda: TipoDePrenda | null = null) => {
     setEditingPrenda(prenda);
     setIsPrendaModalOpen(true);
@@ -101,7 +104,6 @@ const ConfiguracionPage = () => {
     }
   };
 
-  // --- LÓGICA PARA GESTIONAR EMPLEADOS ---
   const handleOpenEmpleadoModal = (empleado: Empleado | null = null) => {
     setEditingEmpleado(empleado);
     setIsEmpleadoModalOpen(true);
@@ -137,7 +139,30 @@ const ConfiguracionPage = () => {
     }
   };
   
-  // --- LÓGICA PARA GESTIONAR PREMIOS ---
+  const handleOpenPinModal = (empleado: Empleado) => {
+    setEmpleadoParaPin(empleado);
+    setIsPinModalOpen(true);
+  };
+  const handleClosePinModal = () => {
+    setIsPinModalOpen(false);
+    setEmpleadoParaPin(null);
+  };
+  const handleSavePin = async (pin: string) => {
+    if (!empleadoParaPin) return;
+    try {
+      const salt = bcrypt.genSaltSync(10);
+      const pinHash = bcrypt.hashSync(pin, salt);
+      const empleadoDocRef = doc(db, 'empleados', empleadoParaPin.id);
+      await updateDoc(empleadoDocRef, { pinHash: pinHash });
+      setEmpleados(empleados.map(e => e.id === empleadoParaPin.id ? { ...e, pinHash } : e));
+      toast.success(`PIN para ${empleadoParaPin.nombreCompleto} configurado con éxito.`);
+      handleClosePinModal();
+    } catch (error) {
+      console.error("Error al guardar el PIN:", error);
+      toast.error("No se pudo guardar el PIN.");
+    }
+  };
+
   const handleOpenPremioModal = (premio: Premio | null = null) => {
     setEditingPremio(premio);
     setIsPremioModalOpen(true);
@@ -170,7 +195,6 @@ const ConfiguracionPage = () => {
     } catch (error) { toast.error("No se pudo cambiar el estado del premio."); }
   };
 
-  // --- LÓGICA PARA REGLAS DE PUNTOS ---
   const handleSaveConfig = async () => {
     const puntosNum = parseInt(puntosOtorgados, 10);
     const montoNum = parseFloat(montoRequerido);
@@ -223,6 +247,7 @@ const ConfiguracionPage = () => {
           empleados={empleados}
           onEdit={handleOpenEmpleadoModal}
           onDelete={handleDeleteEmpleado}
+          onSetPin={handleOpenPinModal}
         />
       </section>
 
@@ -256,6 +281,14 @@ const ConfiguracionPage = () => {
       <Modal isOpen={isEmpleadoModalOpen} onClose={handleCloseEmpleadoModal} title={editingEmpleado ? 'Editar Empleado' : 'Nuevo Empleado'}>
         <EmpleadoFormModal onClose={handleCloseEmpleadoModal} onSave={handleSaveEmpleado} empleadoInicial={editingEmpleado} />
       </Modal>
+      {empleadoParaPin && (
+        <Modal isOpen={isPinModalOpen} onClose={handleClosePinModal} title={`Configurar PIN para ${empleadoParaPin.nombreCompleto}`}>
+          <PinFormModal 
+            onClose={handleClosePinModal}
+            onSave={handleSavePin}
+          />
+        </Modal>
+      )}
       <Modal isOpen={isPremioModalOpen} onClose={handleClosePremioModal} title={editingPremio ? 'Editar Premio' : 'Nuevo Premio'}>
         <PremioFormModal onClose={handleClosePremioModal} onSave={handleSavePremio} premioInicial={editingPremio} />
       </Modal>

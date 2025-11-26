@@ -1,5 +1,6 @@
 import type { Venta, Cliente } from '../../types';
 import type { Timestamp } from 'firebase/firestore';
+import { FaEye } from 'react-icons/fa'; // Importamos un icono para el botón
 import './VentasTable.css';
 
 interface VentasTableProps {
@@ -28,11 +29,11 @@ const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes, onVerDetall
   const formatMoneda = (monto: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
 
   return (
-    // 1. Añadimos una clase específica para evitar conflictos de estilos
     <div className="table-container ventas-table">
       <table>
         <thead>
           <tr>
+            <th>Ticket</th>
             <th>Cliente</th>
             <th>Monto Total</th>
             <th>Fecha y Hora</th>
@@ -43,18 +44,23 @@ const VentasTable: React.FC<VentasTableProps> = ({ ventas, clientes, onVerDetall
         <tbody>
           {ventas.map((venta) => (
             <tr key={venta.id}>
-              {/* 2. Añadimos data-label a cada celda */}
-              <td data-label="Cliente" className="cliente-principal">
-                <strong>{getNombreCliente(venta.clienteId)}</strong>
+              {/* En móvil, el ticket actuará como el título de la tarjeta */}
+              <td data-label="Ticket" className="cliente-principal">
+                <strong>#{venta.nroTicket}</strong>
               </td>
+              <td data-label="Cliente">{getNombreCliente(venta.clienteId)}</td>
               <td data-label="Monto" className="monto">
                 {formatMoneda(venta.montoTotal)}
               </td>
               <td data-label="Fecha">{formatFecha(venta.fecha)}</td>
               <td data-label="Método de Pago">{venta.metodoDePago}</td>
               <td data-label="Acciones">
-                <button className="secondary-button small-button" onClick={() => onVerDetalles(venta)}>
-                  Ver detalles
+                <button 
+                  className="secondary-button small-button" 
+                  onClick={() => onVerDetalles(venta)}
+                  title="Ver detalle de la venta"
+                >
+                  <FaEye /> <span>Ver</span>
                 </button>
               </td>
             </tr>

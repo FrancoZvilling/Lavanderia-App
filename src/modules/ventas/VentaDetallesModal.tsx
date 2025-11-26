@@ -10,6 +10,9 @@ const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente 
   return (
     <div className="detalles-container">
       <div className="detalle-seccion">
+        <h4>Ticket N° {venta.nroTicket}</h4>
+      </div>
+      <div className="detalle-seccion">
         <h4>Cliente</h4>
         <p>{cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente Anónimo'}</p>
       </div>

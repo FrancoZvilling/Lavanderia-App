@@ -49,3 +49,8 @@
   font-weight: bold;
   color: var(--color-primario);
 }
+
+.detalle-seccion h4:first-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
