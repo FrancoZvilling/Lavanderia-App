@@ -4,6 +4,16 @@
 .arqueo-sobrante { color: #f39c12; font-weight: bold; }
 .fecha-principal strong { font-size: 1.1rem; }
 
+.clickable-cell {
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.clickable-cell:hover {
+  color: var(--color-primario);
+}
+
 /* --- MEDIA QUERY PARA TRANSFORMAR LA TABLA A TARJETAS EN MÓVIL --- */
 @media (max-width: 768px) {
   .caja-table {

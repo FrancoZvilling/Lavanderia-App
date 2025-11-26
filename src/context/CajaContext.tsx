@@ -27,12 +27,11 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
 
     let unsubscribeVentas: Unsubscribe | null = null;
     let unsubscribeRetiros: Unsubscribe | null = null;
-    let unsubscribeIngresos: Unsubscribe | null = null; // Listener para ingresos
+    let unsubscribeIngresos: Unsubscribe | null = null;
 
     const qCajaAbierta = query(collection(db, 'cajas'), where('fechaCierre', '==', null));
     
     const unsubscribeCajas = onSnapshot(qCajaAbierta, (snapshotCajas) => {
-      // Limpiamos listeners anidados de la iteración anterior
       if (unsubscribeVentas) unsubscribeVentas();
       if (unsubscribeRetiros) unsubscribeRetiros();
       if (unsubscribeIngresos) unsubscribeIngresos();
@@ -44,29 +43,29 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
         const cajaAbiertaDoc = snapshotCajas.docs[0];
         const cajaAbiertaData = cajaAbiertaDoc.data();
         
-        // Creamos listeners anidados para ventas, retiros e ingresos de la caja actual
         const qVentas = query(collection(db, 'ventas'), where('cajaId', '==', cajaAbiertaDoc.id));
         const qRetiros = query(collection(db, 'retiros'), where('cajaId', '==', cajaAbiertaDoc.id));
         const qIngresos = query(collection(db, 'ingresos'), where('cajaId', '==', cajaAbiertaDoc.id));
 
         let ventasData: Venta[] = [];
         let retirosData: Retiro[] = [];
-        let ingresosData: Ingreso[] = []; // Array para los datos de ingresos
+        let ingresosData: Ingreso[] = [];
         let listenersReady = { ventas: false, retiros: false, ingresos: false };
 
         const updateCajaActual = () => {
-          // Solo actualizamos el estado cuando los tres listeners hayan cargado su data inicial
           if (listenersReady.ventas && listenersReady.retiros && listenersReady.ingresos) {
+            // --- CORRECCIÓN CLAVE: Leemos TODOS los campos del documento ---
             const cajaCompleta: RegistroCaja = {
               id: cajaAbiertaDoc.id,
               fechaApertura: cajaAbiertaData.fechaApertura,
               montoInicial: cajaAbiertaData.montoInicial,
               diferenciaApertura: cajaAbiertaData.diferenciaApertura,
+              desgloseApertura: cajaAbiertaData.desgloseApertura, // Campo añadido
               empleadoId: cajaAbiertaData.empleadoId,
               empleadoNombre: cajaAbiertaData.empleadoNombre,
               ventasDelDia: ventasData,
               retirosDelDia: retirosData,
-              ingresosDelDia: ingresosData, // Añadimos los ingresos al objeto
+              ingresosDelDia: ingresosData,
               fechaCierre: null,
               montoFinal: null
             };
@@ -87,7 +86,6 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
           updateCajaActual();
         });
 
-        // Establecemos el listener para los ingresos manuales
         unsubscribeIngresos = onSnapshot(qIngresos, (snapshot) => {
           ingresosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ingreso));
           listenersReady.ingresos = true;
@@ -99,7 +97,6 @@ export const CajaProvider = ({ children }: { children: ReactNode }) => {
       setLoadingCaja(false);
     });
 
-    // Función de limpieza final
     return () => {
       unsubscribeCajas();
       if (unsubscribeVentas) unsubscribeVentas();

@@ -4,6 +4,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebaseConfig';
 import bcrypt from 'bcryptjs';
 import type { Empleado } from '../../types';
+// 1. Importamos BillCounter y su tipo BillCounts
+import BillCounter, { type BillCounts } from './BillCounter';
 import '../ventas/AddSaleForm.css';
 import './CerrarCajaForm.css';
 
@@ -11,27 +13,30 @@ type SelectOption = { value: string; label: string };
 
 interface AbrirCajaFormProps {
   onClose: () => void;
-  onConfirm: (montoInicial: number, empleado: Empleado, pin: string) => void;
+  // 2. La firma de onConfirm ahora incluye el desglose, pero MANTIENE el PIN
+  onConfirm: (montoInicial: number, empleado: Empleado, pin: string, desglose: BillCounts) => void;
   montoCierreAnterior: number | null;
   empleados: Empleado[];
 }
 
 const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, montoCierreAnterior, empleados }) => {
-  const [monto, setMonto] = useState<string>('');
+  const [monto, setMonto] = useState<number>(0);
+  // 3. Nuevo estado para el desglose de billetes
+  const [desglose, setDesglose] = useState<BillCounts>({});
+  
   const [selectedEmpleado, setSelectedEmpleado] = useState<Empleado | null>(null);
   const [pin, setPin] = useState<string>('');
   const [pinHash, setPinHash] = useState<string | null>(null);
   const [showPinInput, setShowPinInput] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingEmpleado, setLoadingEmpleado] = useState(false);
 
   const opcionesEmpleado = empleados.map(e => ({ value: e.id, label: e.nombreCompleto }));
 
-  // useEffect para buscar el pinHash cuando se selecciona un empleado
   useEffect(() => {
     const fetchPinHash = async () => {
       if (selectedEmpleado) {
-        setLoading(true);
+        setLoadingEmpleado(true);
         setError('');
         const empleadoDocRef = doc(db, 'empleados', selectedEmpleado.id);
         try {
@@ -47,7 +52,7 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
         } catch (err) {
             setError('No se pudo verificar el PIN. Revise las reglas de seguridad.');
         } finally {
-            setLoading(false);
+            setLoadingEmpleado(false);
         }
       } else {
         setShowPinInput(false);
@@ -63,48 +68,41 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
     const empleado = empleados.find(e => e.id === option?.value) || null;
     setSelectedEmpleado(empleado);
   };
+  
+  // 4. Nueva función para manejar el cambio del BillCounter
+  const handleCounterChange = (data: { total: number; counts: BillCounts }) => {
+    setMonto(data.total);
+    setDesglose(data.counts);
+  };
 
   const handleSubmit = () => {
     setError('');
-    setLoading(true);
 
-    const montoNumerico = parseFloat(monto);
-    if (isNaN(montoNumerico) || montoNumerico < 0) {
-      setError('Por favor, ingrese un monto válido.');
-      setLoading(false);
-      return;
-    }
     if (!selectedEmpleado) {
       setError('Por favor, seleccione un empleado.');
-      setLoading(false);
       return;
     }
     if (showPinInput && pin.length !== 4) {
       setError('El PIN debe tener 4 dígitos.');
-      setLoading(false);
       return;
     }
     if (showPinInput && pinHash) {
       const isPinValid = bcrypt.compareSync(pin, pinHash);
       if (!isPinValid) {
         setError('PIN incorrecto. Intente de nuevo.');
-        setLoading(false);
         return;
       }
-    } else {
-        // Este error se mostrará si el empleado no tiene PIN configurado
-        setError('No se pudo verificar el PIN. Contacte al administrador.');
-        setLoading(false);
+    } else if (showPinInput && !pinHash) {
         return;
     }
-
-    onConfirm(montoNumerico, selectedEmpleado, pin);
-    setLoading(false);
+    
+    // 5. Pasamos todos los datos requeridos al confirmar
+    onConfirm(monto, selectedEmpleado, pin, desglose);
   };
 
   const diferencia = useMemo(() => {
-    if (montoCierreAnterior === null || monto === '') return null;
-    return parseFloat(monto) - montoCierreAnterior;
+    if (montoCierreAnterior === null) return null;
+    return monto - montoCierreAnterior;
   }, [monto, montoCierreAnterior]);
 
   const getDiferenciaClass = (val: number | null) => {
@@ -131,7 +129,7 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
             options={opcionesEmpleado}
             onChange={handleSelectEmpleado}
             placeholder="Seleccione su nombre..."
-            isLoading={loading}
+            isLoading={loadingEmpleado}
         />
       </div>
 
@@ -153,15 +151,9 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
       )}
       
       <div className="form-group">
-        <label htmlFor="montoInicial">Monto Inicial en Caja</label>
-        <input
-          type="number"
-          id="montoInicial"
-          placeholder="Ingrese el dinero contado"
-          value={monto}
-          onChange={(e) => setMonto(e.target.value)}
-          required
-        />
+        <label>Conteo de Dinero Inicial</label>
+        {/* 6. Usamos el BillCounter con su nueva función */}
+        <BillCounter onChange={handleCounterChange} />
       </div>
 
       {diferencia !== null && (
@@ -179,8 +171,8 @@ const AbrirCajaForm: React.FC<AbrirCajaFormProps> = ({ onClose, onConfirm, monto
         <button type="button" className="secondary-button" onClick={onClose}>
           Cancelar
         </button>
-        <button type="submit" className="primary-button" disabled={!selectedEmpleado || loading}>
-          {loading ? 'Verificando...' : 'Confirmar Apertura'}
+        <button type="submit" className="primary-button" disabled={!selectedEmpleado || loadingEmpleado || (showPinInput && pin.length !== 4)}>
+          {loadingEmpleado ? 'Verificando...' : 'Confirmar Apertura'}
         </button>
       </div>
     </form>

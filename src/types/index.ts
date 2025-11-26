@@ -94,6 +94,8 @@ export interface RegistroCaja {
   totalRetirosTransferencia?: number;
   totalIngresosManualesEfectivo?: number;     
   totalIngresosManualesTransferencia?: number;
+  desgloseApertura?: { [key: string]: number };
+  desgloseCierre?: { [key: string]: number };
   ventasDelDia: Venta[];
   retirosDelDia?: Retiro[];
   ingresosDelDia?: Ingreso[];

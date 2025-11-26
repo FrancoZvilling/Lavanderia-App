@@ -1,0 +1,28 @@
+.desglose-container {
+  padding-top: 10px;
+}
+.desglose-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.desglose-table th, .desglose-table td {
+  padding: 12px;
+  text-align: right;
+  border-bottom: 1px solid var(--color-secundario);
+}
+.desglose-table th:first-child, .desglose-table td:first-child {
+  text-align: left;
+}
+.desglose-table thead th {
+  color: var(--color-primario);
+  font-weight: 600;
+}
+.desglose-table tfoot td {
+  border-top: 2px solid var(--color-texto);
+  border-bottom: none;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+.desglose-table tfoot td:last-child {
+  color: var(--color-primario);
+}

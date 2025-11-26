@@ -120,6 +120,14 @@
 .subtotal-item.egreso strong { color: #c0392b; }
 .subtotal-item.ingreso-manual strong { color: #059669; }
 
+.clickable-widget {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.clickable-widget:hover {
+  transform: scale(1.03);
+}
+
 /* === MEDIA QUERIES PARA PANTALLAS MÁS GRANDES === */
 
 /* Tablets (min-width: 768px) */

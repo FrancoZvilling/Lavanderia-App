@@ -58,9 +58,6 @@ const Layout = () => {
         
         {/* Sección del Footer de la Barra Lateral */}
         <div className="sidebar-footer">
-          <div className="developer-credit">
-            Desarrollado por Franco Zvilling
-          </div>
           <button className="logout-button" onClick={handleLogout}>
             <FaSignOutAlt />
             <span>Cerrar Sesión</span>

@@ -1,0 +1,61 @@
+.bill-counter-container {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  background-color: #f8f9fa;
+}
+
+.bill-counter-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.bill-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto 1.5fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.bill-row label {
+  font-weight: 600;
+  text-align: right;
+}
+
+.bill-row input {
+  width: 70px;
+  padding: 5px 8px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+
+/* Oculta las flechas del input number */
+.bill-row input::-webkit-outer-spin-button,
+.bill-row input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.bill-row input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.subtotal {
+  font-weight: 500;
+  text-align: right;
+}
+
+.bill-counter-total {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 2px solid var(--color-secundario);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.3rem;
+}
+
+.bill-counter-total strong {
+  color: var(--color-primario);
+}

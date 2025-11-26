@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, doc, updateDoc, query, where, orderBy, limit, startAfter, Timestamp } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
+import { type BillCounts } from '../modules/caja/BillCounter';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
 import { useCaja } from '../context/CajaContext';
@@ -105,6 +106,8 @@ const CajaPage = () => {
               totalRetirosTransferencia: data.totalRetirosTransferencia,
               totalIngresosManualesEfectivo: data.totalIngresosManualesEfectivo,
               totalIngresosManualesTransferencia: data.totalIngresosManualesTransferencia,
+              desgloseApertura: data.desgloseApertura,
+              desgloseCierre: data.desgloseCierre,
               ventasDelDia: [],
             } as RegistroCaja;
           });
@@ -234,6 +237,8 @@ const CajaPage = () => {
                 totalRetirosTransferencia: data.totalRetirosTransferencia,
                 totalIngresosManualesEfectivo: data.totalIngresosManualesEfectivo,
                 totalIngresosManualesTransferencia: data.totalIngresosManualesTransferencia,
+                desgloseApertura: data.desgloseApertura, 
+                desgloseCierre: data.desgloseCierre,
                 ventasDelDia: [],
             };
             return registro;
@@ -252,21 +257,32 @@ const CajaPage = () => {
     }
   };
 
-  // --- FUNCIÓN handleAbrirCaja CON LA FIRMA CORREGIDA ---
-  const handleAbrirCaja = async (montoInicial: number, empleado: Empleado, pinIngresado: string) => {
-    // La verificación del PIN ya se hizo en el formulario, aquí solo recibimos la confirmación
+  const handleAbrirCaja = async (montoInicial: number, empleado: Empleado, pinIngresado: string, desglose: BillCounts) => {
+    // La verificación del PIN ya se hizo en el formulario, aquí solo confirmamos que los datos llegaron.
     if (!empleado || !pinIngresado) {
-        toast.error("Faltan datos para abrir la caja.");
+        toast.error("Faltan datos del empleado o el PIN para abrir la caja.");
         return;
     }
+
     try {
       const diferencia = montoCierreAnterior !== null ? montoInicial - montoCierreAnterior : 0;
+      
+      // Limpiamos el objeto de desglose para no guardar denominaciones con cantidad 0
+      const desgloseLimpio = Object.entries(desglose).reduce((acc, [key, value]) => {
+        if (value > 0) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as { [key: string]: number });
+
+      // Creamos el nuevo documento de caja en Firestore
       await addDoc(collection(db, 'cajas'), {
         montoInicial,
         fechaApertura: Timestamp.fromDate(new Date()),
         diferenciaApertura: diferencia,
         empleadoId: empleado.id,
         empleadoNombre: empleado.nombreCompleto,
+        desgloseApertura: desgloseLimpio, // Guardamos el desglose de la apertura
         fechaCierre: null,
         montoFinal: null,
         totalVentas: 0,
@@ -279,6 +295,7 @@ const CajaPage = () => {
         totalIngresosManualesEfectivo: 0,
         totalIngresosManualesTransferencia: 0,
       });
+
       setIsAbrirModalOpen(false);
       toast.success(`Caja abierta por ${empleado.nombreCompleto}.`);
     } catch (error) {
@@ -287,9 +304,54 @@ const CajaPage = () => {
     }
   };
 
-  const handleCerrarCaja = async (montoFinal: number) => {
+ // --- FUNCIÓN handleCerrarCaja ACTUALIZADA CON VERIFICACIÓN ---
+  const handleCerrarCaja = async (montoFinal: number, desglose: BillCounts) => {
+    if (!cajaActual) return;
+
+    // 1. ANTES de hacer nada, verificamos si hay ventas pendientes
+    try {
+      const ventasPendientesRef = collection(db, 'ventasPendientes');
+      const querySnapshot = await getDocs(ventasPendientesRef);
+
+      // 2. Si hay ventas pendientes, mostramos la confirmación
+      if (!querySnapshot.empty) {
+        const confirmPromise = new Promise<void>((resolve, reject) => {
+          const onConfirm = () => { toast.dismiss(); resolve(); };
+          const onCancel = () => { toast.dismiss(); reject(); };
+
+          toast.warn(
+            <div>
+              <p>Todavía hay {querySnapshot.size} pedido(s) sin procesar en Cuenta Corriente.</p>
+              <p><strong>¿Seguro que quiere cerrar la caja?</strong></p>
+              <div className="confirmation-buttons">
+                <button onClick={onCancel} className="secondary-button small-button">Cancelar</button>
+                <button onClick={onConfirm} className="primary-button small-button">Sí, cerrar</button>
+              </div>
+            </div>,
+            { autoClose: false, closeOnClick: false, closeButton: false, toastId: 'confirm-cierre' }
+          );
+        });
+
+        await toast.promise(confirmPromise, {
+            pending: 'Esperando confirmación...',
+            error: 'Cierre de caja cancelado.'
+        });
+      }
+
+      // 3. Si no había ventas pendientes O si el usuario confirmó, procedemos a cerrar
+      await procederConElCierre(montoFinal, desglose);
+
+    } catch (error) {
+      // Este catch captura tanto el error de la consulta como la cancelación del usuario
+      console.log("Error o cancelación en el proceso de cierre:", error);
+    }
+  };
+
+  // --- LÓGICA DE CIERRE EXTRAÍDA A SU PROPIA FUNCIÓN ---
+  const procederConElCierre = async (montoFinal: number, desglose: BillCounts) => {
     if (!cajaActual) return;
     
+    // Cálculos de subtotales
     const subtotales = (cajaActual.ventasDelDia || []).reduce((acc, venta) => {
         acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
         return acc;
@@ -303,6 +365,14 @@ const CajaPage = () => {
     const ingresosManualesEfectivo = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Efectivo').reduce((sum, i) => sum + i.monto, 0);
     const ingresosManualesTransferencia = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Transferencia').reduce((sum, i) => sum + i.monto, 0);
 
+    // Limpiamos el objeto de desglose para no guardar ceros innecesarios
+    const desgloseLimpio = Object.entries(desglose).reduce((acc, [key, value]) => {
+      if (value > 0) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as { [key: string]: number });
+
     const cajaDocRef = doc(db, 'cajas', cajaActual.id);
     const fechaDeCierre = Timestamp.fromDate(new Date());
 
@@ -310,6 +380,7 @@ const CajaPage = () => {
         await updateDoc(cajaDocRef, {
             montoFinal,
             fechaCierre: fechaDeCierre,
+            desgloseCierre: desgloseLimpio,
             totalVentas: totalVentasDelDia,
             totalEfectivo: subtotales.Efectivo,
             totalTransferencia: subtotales.Transferencia,
@@ -325,6 +396,7 @@ const CajaPage = () => {
             ...cajaActual, 
             montoFinal, 
             fechaCierre: fechaDeCierre, 
+            desgloseCierre: desgloseLimpio,
             totalVentas: totalVentasDelDia,
             totalEfectivo: subtotales.Efectivo,
             totalTransferencia: subtotales.Transferencia,
