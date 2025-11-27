@@ -4,13 +4,15 @@ import App from './App.tsx'
 import './index.css'
 import { AuthProvider } from './context/AuthContext.tsx';
 import { CajaProvider } from './context/CajaContext.tsx';
+import { RoleProvider } from './context/RoleContext.tsx';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* 2. Envolver App con AuthProvider */}
     <AuthProvider>
       <CajaProvider>
-        <App />
+        <RoleProvider>
+          <App />
+        </RoleProvider>
       </CajaProvider>
     </AuthProvider>
   </React.StrictMode>,

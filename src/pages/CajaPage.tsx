@@ -5,6 +5,7 @@ import { type BillCounts } from '../modules/caja/BillCounter';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
 import { useCaja } from '../context/CajaContext';
+import { useRole } from '../context/RoleContext';
 import useDebounce from '../hooks/useDebounce';
 import CajaActual from '../modules/caja/CajaActual';
 import HistorialCajaTable from '../modules/caja/HistorialCajaTable';
@@ -25,6 +26,7 @@ import './ConfiguracionPage.css';
 const PAGE_SIZE_CAJA = 15;
 
 const CajaPage = () => {
+  const { mode } = useRole();
   const { cajaActual, loadingCaja } = useCaja();
   
   const [isAbrirModalOpen, setIsAbrirModalOpen] = useState(false);
@@ -55,10 +57,14 @@ const CajaPage = () => {
   const [showRetiros, setShowRetiros] = useState(false);
   const [historialRetiros, setHistorialRetiros] = useState<Retiro[]>([]);
   const [loadingRetiros, setLoadingRetiros] = useState(false);
+  const [filterDateRetiros, setFilterDateRetiros] = useState<string>(todayString);
+  const debouncedFilterDateRetiros = useDebounce(filterDateRetiros, 400);
 
   const [showIngresos, setShowIngresos] = useState(false);
   const [historialIngresos, setHistorialIngresos] = useState<Ingreso[]>([]);
   const [loadingIngresos, setLoadingIngresos] = useState(false);
+  const [filterDateIngresos, setFilterDateIngresos] = useState<string>(todayString);
+  const debouncedFilterDateIngresos = useDebounce(filterDateIngresos, 400);
 
   useEffect(() => {
     let isCancelled = false;
@@ -148,7 +154,6 @@ const CajaPage = () => {
       } catch (error) { console.error("Error al obtener el último cierre de caja:", error); }
 
       try {
-        // --- CORRECCIÓN EN LOS NOMBRES DE LAS VARIABLES ---
         const [empleadosSnapshot, motivosRetiroSnapshot, motivosIngresoSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'empleados'), orderBy('nombreCompleto'))),
             getDocs(query(collection(db, 'motivosRetiro'), orderBy('nombre'))),
@@ -166,40 +171,52 @@ const CajaPage = () => {
   }, [cajaActual]);
 
   useEffect(() => {
-    if (showRetiros) {
-      const fetchRetiros = async () => {
-        setLoadingRetiros(true);
-        try {
-          const q = query(collection(db, 'retiros'), orderBy('fecha', 'desc'));
-          const retirosSnapshot = await getDocs(q);
-          setHistorialRetiros(retirosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Retiro)));
-        } catch (error) {
-          toast.error("Error al cargar el historial de retiros.");
-        } finally {
-          setLoadingRetiros(false);
-        }
-      };
-      fetchRetiros();
-    }
-  }, [showRetiros]);
+    if (!showRetiros || !debouncedFilterDateRetiros) return;
+    const fetchRetiros = async () => {
+      setLoadingRetiros(true);
+      try {
+        const startOfDay = new Date(`${debouncedFilterDateRetiros}T00:00:00`);
+        const endOfDay = new Date(`${debouncedFilterDateRetiros}T23:59:59.999`);
+        const q = query(
+          collection(db, 'retiros'),
+          where('fecha', '>=', Timestamp.fromDate(startOfDay)),
+          where('fecha', '<=', Timestamp.fromDate(endOfDay)),
+          orderBy('fecha', 'desc')
+        );
+        const retirosSnapshot = await getDocs(q);
+        setHistorialRetiros(retirosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Retiro)));
+      } catch (error) {
+        toast.error("Error al cargar el historial de retiros.");
+      } finally {
+        setLoadingRetiros(false);
+      }
+    };
+    fetchRetiros();
+  }, [showRetiros, debouncedFilterDateRetiros]);
 
   useEffect(() => {
-    if (showIngresos) {
-      const fetchIngresos = async () => {
-        setLoadingIngresos(true);
-        try {
-          const q = query(collection(db, 'ingresos'), orderBy('fecha', 'desc'));
-          const ingresosSnapshot = await getDocs(q);
-          setHistorialIngresos(ingresosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ingreso)));
-        } catch (error) {
-          toast.error("Error al cargar el historial de ingresos.");
-        } finally {
-          setLoadingIngresos(false);
-        }
-      };
-      fetchIngresos();
-    }
-  }, [showIngresos]);
+    if (!showIngresos || !debouncedFilterDateIngresos) return;
+    const fetchIngresos = async () => {
+      setLoadingIngresos(true);
+      try {
+        const startOfDay = new Date(`${debouncedFilterDateIngresos}T00:00:00`);
+        const endOfDay = new Date(`${debouncedFilterDateIngresos}T23:59:59.999`);
+        const q = query(
+          collection(db, 'ingresos'),
+          where('fecha', '>=', Timestamp.fromDate(startOfDay)),
+          where('fecha', '<=', Timestamp.fromDate(endOfDay)),
+          orderBy('fecha', 'desc')
+        );
+        const ingresosSnapshot = await getDocs(q);
+        setHistorialIngresos(ingresosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ingreso)));
+      } catch (error) {
+        toast.error("Error al cargar el historial de ingresos.");
+      } finally {
+        setLoadingIngresos(false);
+      }
+    };
+    fetchIngresos();
+  }, [showIngresos, debouncedFilterDateIngresos]);
 
   const handleLoadMoreCaja = async () => {
     if (!lastDocCaja || loadingMoreCaja) return;
@@ -258,31 +275,25 @@ const CajaPage = () => {
   };
 
   const handleAbrirCaja = async (montoInicial: number, empleado: Empleado, pinIngresado: string, desglose: BillCounts) => {
-    // La verificación del PIN ya se hizo en el formulario, aquí solo confirmamos que los datos llegaron.
     if (!empleado || !pinIngresado) {
         toast.error("Faltan datos del empleado o el PIN para abrir la caja.");
         return;
     }
-
     try {
       const diferencia = montoCierreAnterior !== null ? montoInicial - montoCierreAnterior : 0;
-      
-      // Limpiamos el objeto de desglose para no guardar denominaciones con cantidad 0
       const desgloseLimpio = Object.entries(desglose).reduce((acc, [key, value]) => {
         if (value > 0) {
           acc[key] = value;
         }
         return acc;
       }, {} as { [key: string]: number });
-
-      // Creamos el nuevo documento de caja en Firestore
       await addDoc(collection(db, 'cajas'), {
         montoInicial,
         fechaApertura: Timestamp.fromDate(new Date()),
         diferenciaApertura: diferencia,
         empleadoId: empleado.id,
         empleadoNombre: empleado.nombreCompleto,
-        desgloseApertura: desgloseLimpio, // Guardamos el desglose de la apertura
+        desgloseApertura: desgloseLimpio,
         fechaCierre: null,
         montoFinal: null,
         totalVentas: 0,
@@ -295,7 +306,6 @@ const CajaPage = () => {
         totalIngresosManualesEfectivo: 0,
         totalIngresosManualesTransferencia: 0,
       });
-
       setIsAbrirModalOpen(false);
       toast.success(`Caja abierta por ${empleado.nombreCompleto}.`);
     } catch (error) {
@@ -304,16 +314,13 @@ const CajaPage = () => {
     }
   };
 
- // --- FUNCIÓN handleCerrarCaja ACTUALIZADA CON VERIFICACIÓN ---
   const handleCerrarCaja = async (montoFinal: number, desglose: BillCounts) => {
     if (!cajaActual) return;
 
-    // 1. ANTES de hacer nada, verificamos si hay ventas pendientes
     try {
       const ventasPendientesRef = collection(db, 'ventasPendientes');
       const querySnapshot = await getDocs(ventasPendientesRef);
 
-      // 2. Si hay ventas pendientes, mostramos la confirmación
       if (!querySnapshot.empty) {
         const confirmPromise = new Promise<void>((resolve, reject) => {
           const onConfirm = () => { toast.dismiss(); resolve(); };
@@ -338,20 +345,16 @@ const CajaPage = () => {
         });
       }
 
-      // 3. Si no había ventas pendientes O si el usuario confirmó, procedemos a cerrar
       await procederConElCierre(montoFinal, desglose);
 
     } catch (error) {
-      // Este catch captura tanto el error de la consulta como la cancelación del usuario
       console.log("Error o cancelación en el proceso de cierre:", error);
     }
   };
 
-  // --- LÓGICA DE CIERRE EXTRAÍDA A SU PROPIA FUNCIÓN ---
   const procederConElCierre = async (montoFinal: number, desglose: BillCounts) => {
     if (!cajaActual) return;
     
-    // Cálculos de subtotales
     const subtotales = (cajaActual.ventasDelDia || []).reduce((acc, venta) => {
         acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
         return acc;
@@ -365,7 +368,6 @@ const CajaPage = () => {
     const ingresosManualesEfectivo = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Efectivo').reduce((sum, i) => sum + i.monto, 0);
     const ingresosManualesTransferencia = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Transferencia').reduce((sum, i) => sum + i.monto, 0);
 
-    // Limpiamos el objeto de desglose para no guardar ceros innecesarios
     const desgloseLimpio = Object.entries(desglose).reduce((acc, [key, value]) => {
       if (value > 0) {
         acc[key] = value;
@@ -529,7 +531,7 @@ const CajaPage = () => {
         <header className="page-header">
           <h2>Movimientos de Caja</h2>
           <div className="header-actions" style={{ flexDirection: 'row', gap: '10px' }}>
-            <button className="secondary-button" style={{backgroundColor: '#e8f5e9', borderColor: '#27ae60', color: '#27ae60'}} onClick={() => setIsIngresoModalOpen(true)} disabled={!cajaActual} title={!cajaActual ? "Abra la caja para hacer ingresos" : "Registrar un nuevo ingreso"}>
+            <button className="primary-button" style={{backgroundColor: '#e8f5e9', borderColor: '#27ae60', color: '#27ae60'}} onClick={() => setIsIngresoModalOpen(true)} disabled={!cajaActual} title={!cajaActual ? "Abra la caja para hacer ingresos" : "Registrar un nuevo ingreso"}>
               Hacer Ingreso
             </button>
             <button 
@@ -543,58 +545,73 @@ const CajaPage = () => {
           </div>
         </header>
 
-        <div className="history-toggles-container">
-          <div className="history-toggle">
-            <button className="secondary-button" onClick={() => setShowIngresos(!showIngresos)}>
-              {showIngresos ? <FaChevronUp/> : <FaChevronDown/>}
-              <span>Historial de Ingresos</span>
-            </button>
-          </div>
-          {showIngresos && (loadingIngresos ? <Spinner/> : <IngresosHistorial ingresos={historialIngresos} />)}
+        {mode === 'admin' && (
+          <div className="history-toggles-container">
+            <div className="history-toggle">
+              <button className="secondary-button" onClick={() => setShowIngresos(!showIngresos)}>
+                {showIngresos ? <FaChevronUp/> : <FaChevronDown/>}
+                <span>Historial de Ingresos</span>
+              </button>
+              {showIngresos && (
+                <div className="history-filter">
+                  <input type="date" className="filter-input" value={filterDateIngresos} onChange={e => setFilterDateIngresos(e.target.value)} />
+                </div>
+              )}
+            </div>
+            {showIngresos && (loadingIngresos ? <Spinner/> : <IngresosHistorial ingresos={historialIngresos} />)}
 
-          <div className="history-toggle">
-            <button className="secondary-button" onClick={() => setShowRetiros(!showRetiros)}>
-              {showRetiros ? <FaChevronUp/> : <FaChevronDown/>}
-              <span>Historial de Retiros</span>
-            </button>
-          </div>
-          {showRetiros && (loadingRetiros ? <Spinner/> : <RetirosHistorial retiros={historialRetiros} />)}
-        </div>
-      </section>
-
-      <div className="history-section">
-        <header className="page-header" style={{marginBottom: '20px', alignItems: 'center'}}>
-          <h1>Historial de Cajas</h1>
-          <div className="filters-container" style={{padding: '10px', boxShadow: 'none'}}>
-            <label htmlFor="filterDateCaja" style={{fontWeight: 500}}>Filtrar por fecha:</label>
-            <input 
-              type="date" 
-              id="filterDateCaja"
-              className="filter-input"
-              value={filterDateCaja}
-              onChange={(e) => setFilterDateCaja(e.target.value)}
-            />
-            <button className="secondary-button" onClick={() => setFilterDateCaja(todayString)}>Hoy</button>
-          </div>
-        </header>
-        {loadingHistorial ? 
-            <Spinner /> 
-            : <HistorialCajaTable 
-                registros={historialCajas}
-                onVerDetalles={handleOpenDetailsModal}
-              />
-        }
-        {historialCajas.length === 0 && !loadingHistorial &&
-            <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay registros de caja para la fecha seleccionada.</p>
-        }
-        {hasMoreCaja && !loadingHistorial && (
-          <div className="load-more-container">
-            <button className="primary-button" onClick={handleLoadMoreCaja} disabled={loadingMoreCaja}>
-              {loadingMoreCaja ? 'Cargando...' : 'Cargar más'}
-            </button>
+            <div className="history-toggle">
+              <button className="secondary-button" onClick={() => setShowRetiros(!showRetiros)}>
+                {showRetiros ? <FaChevronUp/> : <FaChevronDown/>}
+                <span>Historial de Retiros</span>
+              </button>
+              {showRetiros && (
+                <div className="history-filter">
+                  <input type="date" className="filter-input" value={filterDateRetiros} onChange={e => setFilterDateRetiros(e.target.value)} />
+                </div>
+              )}
+            </div>
+            {showRetiros && (loadingRetiros ? <Spinner/> : <RetirosHistorial retiros={historialRetiros} />)}
           </div>
         )}
-      </div>
+      </section>
+
+      {mode === 'admin' && (
+        <div className="history-section">
+          <header className="page-header" style={{marginBottom: '20px', alignItems: 'center'}}>
+            <h1>Historial de Cajas</h1>
+            <div className="filters-container" style={{padding: '10px', boxShadow: 'none'}}>
+              <label htmlFor="filterDateCaja" style={{fontWeight: 500}}>Filtrar por fecha:</label>
+              <input 
+                type="date" 
+                id="filterDateCaja"
+                className="filter-input"
+                value={filterDateCaja}
+                onChange={(e) => setFilterDateCaja(e.target.value)}
+              />
+              <button className="secondary-button" onClick={() => setFilterDateCaja(todayString)}>Hoy</button>
+            </div>
+          </header>
+          {loadingHistorial ? 
+              <Spinner /> 
+              : <HistorialCajaTable 
+                  registros={historialCajas}
+                  onVerDetalles={handleOpenDetailsModal}
+                />
+          }
+          {historialCajas.length === 0 && !loadingHistorial &&
+              <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay registros de caja para la fecha seleccionada.</p>
+          }
+          {hasMoreCaja && !loadingHistorial && (
+            <div className="load-more-container">
+              <button className="primary-button" onClick={handleLoadMoreCaja} disabled={loadingMoreCaja}>
+                {loadingMoreCaja ? 'Cargando...' : 'Cargar más'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <Modal isOpen={isAbrirModalOpen} onClose={() => setIsAbrirModalOpen(false)} title="Abrir Caja">
         <AbrirCajaForm 
             onClose={() => setIsAbrirModalOpen(false)} 

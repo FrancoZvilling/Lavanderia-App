@@ -16,11 +16,17 @@ export interface Cliente {
   puntos: number;
   estadoLavado: EstadoLavado;
 }
+export interface CategoriaPrenda {
+  id: string;
+  nombre: string;
+}
 
 export interface TipoDePrenda {
   id: string;
   nombre: string;
   precio: number;
+  categoriaId: string;
+  categoriaNombre: string;
 }
 
 export interface Venta {

@@ -1,0 +1,31 @@
+.prenda-selector-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+.prenda-selector-list li {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.prenda-selector-list li:hover {
+  background-color: var(--color-secundario);
+}
+.prenda-selector-list li:last-child {
+  border-bottom: none;
+}
+.prenda-selector-list input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  pointer-events: none; /* Para que el clic sea en toda la fila */
+}
+.prenda-info { display: flex; flex-direction: column; }
+.prenda-info small { color: #7f8c8d; font-size: 0.8rem; }

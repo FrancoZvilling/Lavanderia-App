@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, query, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, orderBy, query, getDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
 import bcrypt from 'bcryptjs';
-import type { Premio, TipoDePrenda, Empleado } from '../types';
+import type { Premio, TipoDePrenda, Empleado, CategoriaPrenda } from '../types';
 import PremiosTable from '../modules/fidelizacion/PremiosTable';
 import PremioFormModal from '../modules/fidelizacion/PremioFormModal';
 import PrendasTable from '../modules/configuracion/PrendasTable';
@@ -11,8 +11,10 @@ import PrendaFormModal from '../modules/configuracion/PrendaFormModal';
 import EmpleadosTable from '../modules/configuracion/EmpleadosTable';
 import EmpleadoFormModal from '../modules/configuracion/EmpleadoFormModal';
 import PinFormModal from '../modules/configuracion/PinFormModal';
+import PriceModifierModal from '../modules/configuracion/PriceModifierModal';
 import Modal from '../components/Modal';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaKey } from 'react-icons/fa';
+import Spinner from '../components/Spinner';
 import './VentasPage.css';
 import './ConfiguracionPage.css';
 
@@ -20,6 +22,7 @@ const ConfiguracionPage = () => {
   const [premios, setPremios] = useState<Premio[]>([]);
   const [tiposDePrenda, setTiposDePrenda] = useState<TipoDePrenda[]>([]);
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [categoriasPrenda, setCategoriasPrenda] = useState<CategoriaPrenda[]>([]);
   const [loading, setLoading] = useState(true);
   
   const [isPremioModalOpen, setIsPremioModalOpen] = useState(false);
@@ -30,6 +33,8 @@ const ConfiguracionPage = () => {
   const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [empleadoParaPin, setEmpleadoParaPin] = useState<Empleado | null>(null);
+  const [isPriceModifierModalOpen, setIsPriceModifierModalOpen] = useState(false);
+  const [isAdminPinModalOpen, setIsAdminPinModalOpen] = useState(false); // Nuevo estado para el PIN de admin
 
   const [puntosOtorgados, setPuntosOtorgados] = useState<string>('');
   const [montoRequerido, setMontoRequerido] = useState<string>('');
@@ -38,16 +43,18 @@ const ConfiguracionPage = () => {
   useEffect(() => {
     const fetchConfigData = async () => {
       try {
-        const [premiosSnapshot, prendasSnapshot, empleadosSnapshot, configSnapshot] = await Promise.all([
+        const [premiosSnapshot, prendasSnapshot, empleadosSnapshot, categoriasSnapshot, configSnapshot] = await Promise.all([
           getDocs(query(collection(db, 'premios'), orderBy('puntosRequeridos'))),
           getDocs(query(collection(db, 'tiposDePrenda'), orderBy('nombre'))),
           getDocs(query(collection(db, 'empleados'), orderBy('nombreCompleto'))),
+          getDocs(query(collection(db, 'categoriasPrenda'), orderBy('nombre'))),
           getDoc(doc(db, 'configuracion', 'puntos'))
         ]);
         
         setPremios(premiosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Premio)));
         setTiposDePrenda(prendasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipoDePrenda)));
         setEmpleados(empleadosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Empleado)));
+        setCategoriasPrenda(categoriasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CategoriaPrenda)));
 
         if (configSnapshot.exists()) {
           const data = configSnapshot.data();
@@ -64,6 +71,23 @@ const ConfiguracionPage = () => {
     };
     fetchConfigData();
   }, []);
+
+  // --- NUEVA LÓGICA PARA EL PIN DE ADMINISTRADOR ---
+  const handleSaveAdminPin = async (pin: string) => {
+    try {
+      const salt = bcrypt.genSaltSync(10);
+      const pinHash = bcrypt.hashSync(pin, salt);
+
+      const securityDocRef = doc(db, 'configuracion', 'seguridad');
+      await setDoc(securityDocRef, { adminPinHash: pinHash }, { merge: true });
+
+      toast.success("PIN de Administrador actualizado con éxito.");
+      setIsAdminPinModalOpen(false);
+    } catch (error) {
+      console.error("Error al guardar el PIN de admin:", error);
+      toast.error("No se pudo actualizar el PIN.");
+    }
+  };
 
   const handleOpenPrendaModal = (prenda: TipoDePrenda | null = null) => {
     setEditingPrenda(prenda);
@@ -216,18 +240,88 @@ const ConfiguracionPage = () => {
     }
   };
 
-  if (loading) { return <div className="page-container">Cargando...</div>; }
+  const handleCreateCategoria = async (nombreCategoria: string): Promise<CategoriaPrenda> => {
+    try {
+      const docRef = await addDoc(collection(db, 'categoriasPrenda'), { nombre: nombreCategoria });
+      const nuevaCategoria = { id: docRef.id, nombre: nombreCategoria };
+      setCategoriasPrenda(prev => [...prev, nuevaCategoria].sort((a,b) => a.nombre.localeCompare(b.nombre)));
+      toast.info(`Nueva categoría "${nombreCategoria}" creada.`);
+      return nuevaCategoria;
+    } catch (error) {
+      toast.error("No se pudo crear la nueva categoría.");
+      return { id: 'error-' + Date.now(), nombre: nombreCategoria };
+    }
+  };
+
+  const handleApplyPriceChange = async (alcance: 'todo' | 'categoria' | 'manual', porcentaje: number, targetId?: string, targetList?: string[]) => {
+    const prendasAfectadas = tiposDePrenda.filter(prenda => {
+        if (alcance === 'todo') return true;
+        if (alcance === 'categoria') return prenda.categoriaId === targetId;
+        if (alcance === 'manual') return targetList?.includes(prenda.id);
+        return false;
+    });
+
+    if (prendasAfectadas.length === 0) {
+        toast.warn("No hay prendas que coincidan con los criterios para modificar.");
+        return;
+    }
+
+    if (!window.confirm(`Esto modificará el precio de ${prendasAfectadas.length} prenda(s). ¿Estás seguro de que quieres aplicar un ajuste del ${porcentaje}%?`)) {
+        return;
+    }
+
+    try {
+        const batch = writeBatch(db);
+        const prendasActualizadas: TipoDePrenda[] = [];
+
+        tiposDePrenda.forEach(prenda => {
+            if (prendasAfectadas.some(p => p.id === prenda.id)) {
+                const nuevoPrecio = Math.round(prenda.precio * (1 + (porcentaje / 100)));
+                const prendaRef = doc(db, 'tiposDePrenda', prenda.id);
+                batch.update(prendaRef, { precio: nuevoPrecio });
+                prendasActualizadas.push({ ...prenda, precio: nuevoPrecio });
+            } else {
+                prendasActualizadas.push(prenda);
+            }
+        });
+
+        await batch.commit();
+        setTiposDePrenda(prendasActualizadas.sort((a,b) => a.nombre.localeCompare(b.nombre)));
+        toast.success(`${prendasAfectadas.length} precios actualizados con éxito.`);
+        setIsPriceModifierModalOpen(false);
+    } catch (error) {
+        console.error("Error al actualizar precios:", error);
+        toast.error("Hubo un problema al actualizar los precios.");
+    }
+  };
+
+  if (loading) { return <Spinner />; }
 
   return (
     <div className="page-container">
       <header className="page-header"><h1>Configuración General</h1></header>
       
       <section className="config-section">
+        <h2>Seguridad</h2>
+        <div className="config-item">
+          <span>PIN de Administrador</span>
+          <button className="secondary-button" onClick={() => setIsAdminPinModalOpen(true)}>
+            <FaKey /> Cambiar PIN
+          </button>
+        </div>
+      </section>
+
+      <section className="config-section">
         <header className="page-header">
           <h2>Precios de Prendas</h2>
-          <button className="primary-button" onClick={() => handleOpenPrendaModal()}>
-            <FaPlus /> Añadir Nueva Prenda
-          </button>
+          <div className="header-actions" style={{ flexDirection: 'row', gap: '10px' }}>
+            <button className="secondary-button" onClick={() => setIsPriceModifierModalOpen(true)}>
+              Modificador de Precios
+            </button>
+            <button className="primary-button" onClick={() => handleOpenPrendaModal()}>
+              <FaPlus /> Añadir Prenda
+            </button>
+          </div>
         </header>
         <PrendasTable 
           prendas={tiposDePrenda} 
@@ -276,7 +370,13 @@ const ConfiguracionPage = () => {
       </section>
 
       <Modal isOpen={isPrendaModalOpen} onClose={handleClosePrendaModal} title={editingPrenda ? 'Editar Prenda' : 'Nueva Prenda'}>
-        <PrendaFormModal onClose={handleClosePrendaModal} onSave={handleSavePrenda} prendaInicial={editingPrenda} />
+        <PrendaFormModal 
+          onClose={handleClosePrendaModal} 
+          onSave={handleSavePrenda} 
+          prendaInicial={editingPrenda}
+          categorias={categoriasPrenda}
+          onCreateCategoria={handleCreateCategoria}
+        />
       </Modal>
       <Modal isOpen={isEmpleadoModalOpen} onClose={handleCloseEmpleadoModal} title={editingEmpleado ? 'Editar Empleado' : 'Nuevo Empleado'}>
         <EmpleadoFormModal onClose={handleCloseEmpleadoModal} onSave={handleSaveEmpleado} empleadoInicial={editingEmpleado} />
@@ -291,6 +391,20 @@ const ConfiguracionPage = () => {
       )}
       <Modal isOpen={isPremioModalOpen} onClose={handleClosePremioModal} title={editingPremio ? 'Editar Premio' : 'Nuevo Premio'}>
         <PremioFormModal onClose={handleClosePremioModal} onSave={handleSavePremio} premioInicial={editingPremio} />
+      </Modal>
+      <Modal isOpen={isPriceModifierModalOpen} onClose={() => setIsPriceModifierModalOpen(false)} title="Modificador Masivo de Precios">
+        <PriceModifierModal
+          onClose={() => setIsPriceModifierModalOpen(false)}
+          onConfirm={handleApplyPriceChange}
+          prendas={tiposDePrenda}
+          categorias={categoriasPrenda}
+        />
+      </Modal>
+      <Modal isOpen={isAdminPinModalOpen} onClose={() => setIsAdminPinModalOpen(false)} title="Configurar PIN de Administrador">
+        <PinFormModal 
+          onClose={() => setIsAdminPinModalOpen(false)}
+          onSave={handleSaveAdminPin}
+        />
       </Modal>
     </div>
   );

@@ -2,25 +2,26 @@ import { useState, useMemo, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
+import { useRole } from '../context/RoleContext'; // Importamos el hook de roles
 import ClientCard from '../modules/clientes/ClientCard';
 import Modal from '../components/Modal';
 import ChangeStatusModal from '../modules/clientes/ChangeStatusModal';
 import EditClientFormModal from '../modules/clientes/EditClientFormModal';
+import Spinner from '../components/Spinner';
 import type { Cliente, EstadoLavado } from '../types';
 import './ClientesPage.css';
 import './VentasPage.css';
 
 const ClientesPage = () => {
+  const { mode } = useRole(); // Obtenemos el modo actual (admin/empleado)
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<EstadoLavado | 'Todos'>('Todos');
   
-  // Estados para el modal de cambio de estado
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   
-  // Estados para el modal de edición
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
@@ -39,7 +40,7 @@ const ClientesPage = () => {
             contacto: data.contacto,
             documento: data.documento,
             telefono: data.telefono,
-            descuentoFijo: data.descuentoFijo, // Leemos el descuento
+            descuentoFijo: data.descuentoFijo,
             puntos: data.puntos,
             estadoLavado: data.estadoLavado,
           };
@@ -68,7 +69,6 @@ const ClientesPage = () => {
     });
   }, [searchTerm, statusFilter, clientes]);
 
-  // --- LÓGICA PARA EL MODAL DE CAMBIO DE ESTADO ---
   const handleOpenStatusModal = (cliente: Cliente) => {
     setClienteSeleccionado(cliente);
     setIsStatusModalOpen(true);
@@ -98,7 +98,6 @@ const ClientesPage = () => {
     }
   };
   
-  // --- LÓGICA PARA EL MODAL DE EDICIÓN DE CLIENTE ---
   const handleOpenEditModal = (cliente: Cliente) => {
     setEditingCliente(cliente);
     setIsEditModalOpen(true);
@@ -125,11 +124,7 @@ const ClientesPage = () => {
   };
   
   if (loading) {
-    return (
-      <div className="page-container" style={{ textAlign: 'center', paddingTop: '50px' }}>
-        <h2>Cargando Clientes...</h2>
-      </div>
-    );
+    return <Spinner />;
   }
 
   return (
@@ -154,6 +149,7 @@ const ClientesPage = () => {
             cliente={cliente} 
             onStatusChangeClick={handleOpenStatusModal}
             onEditClick={handleOpenEditModal}
+            mode={mode} // Pasamos el modo actual a la tarjeta
           />
         ))}
         {filteredClientes.length === 0 && !loading && (
