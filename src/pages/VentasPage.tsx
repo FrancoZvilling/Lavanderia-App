@@ -371,26 +371,46 @@ const VentasPage = () => {
     }
   };
   
- const handleCreateCliente = async (nombreCompleto: string, telefono: string, dni: string, descuento: number): Promise<Cliente | null> => {
+ const handleCreateCliente = async (nombreCompleto: string, telefono: string, email: string, descuento: number, observaciones: string): Promise<Cliente | null> => {
     try {
+      // Separamos el nombre y el apellido del nombre completo
       const nombreSplit = nombreCompleto.split(' ');
       const nombre = nombreSplit[0] || '';
       const apellido = nombreSplit.slice(1).join(' ') || '';
+
+      // Construimos el objeto completo del nuevo cliente con los nuevos campos
       const newClientData = {
-        nombre, apellido, telefono, documento: dni, contacto: '', descuentoFijo: descuento, puntos: 0,
+        nombre: nombre.trim(),
+        apellido: apellido.trim(),
+        telefono: telefono.trim(),
+        contacto: email.trim(), // Guardamos el email en la propiedad 'contacto'
+        observaciones: observaciones.trim(), // Guardamos las observaciones
+        descuentoFijo: descuento,
+        puntos: 0,
         estadoLavado: 'Entregado' as const,
+        documento: '', // Guardamos un DNI vacío ya que no se solicita
       };
+
+      // Guardamos el nuevo documento en la colección 'clientes'
       const docRef = await addDoc(collection(db, 'clientes'), newClientData);
+      
+      // Creamos el objeto completo para el estado de React, incluyendo el nuevo ID
       const nuevoCliente: Cliente = { id: docRef.id, ...newClientData };
+
+      // Actualizamos el estado local para que el nuevo cliente aparezca en el desplegable
       setClientes(prev => [...prev, nuevoCliente].sort((a,b) => (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre)));
+      
       toast.success(`Cliente "${nombreCompleto}" creado con éxito.`);
+      
+      // Devolvemos el objeto del nuevo cliente para que pueda ser auto-seleccionado
       return nuevoCliente;
+
     } catch (error) {
       console.error("Error al crear el cliente:", error);
       toast.error("No se pudo crear el nuevo cliente.");
       return null;
     }
-  };
+};
 
   const handleOpenDetailsModal = (venta: Venta) => { setVentaSeleccionada(venta); setIsDetailsModalOpen(true); };
   const handleCloseDetailsModal = () => { setIsDetailsModalOpen(false); setVentaSeleccionada(null); };

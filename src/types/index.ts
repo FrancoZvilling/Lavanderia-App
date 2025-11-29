@@ -9,9 +9,10 @@ export interface Cliente {
   id: string;
   nombre: string;
   apellido: string;
-  documento: string;
-  contacto: string;
-  telefono: string;
+  documento?: string;
+  contacto?: string;
+  telefono?: string;
+  observaciones?: string;
   descuentoFijo?: number;
   puntos: number;
   estadoLavado: EstadoLavado;

@@ -15,14 +15,21 @@ interface VentaItem {
 
 type SelectOption = { value: string; label: string };
 
+// --- CORRECCIÓN CLAVE AQUÍ ---
 interface AddSaleFormProps {
   nroTicket: string | null;
   clientes: Cliente[];
   tiposDePrenda: TipoDePrenda[];
   onClose: () => void;
   onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'>) => void;
-  // --- FIRMA DE LA FUNCIÓN ACTUALIZADA ---
-  onCreateCliente: (nombreCompleto: string, telefono: string, dni: string, descuento: number) => Promise<Cliente | null>;
+  // La firma de la prop ahora espera TODOS los parámetros
+  onCreateCliente: (
+    nombreCompleto: string, 
+    telefono: string, 
+    email: string, 
+    descuento: number, 
+    observaciones: string
+  ) => Promise<Cliente | null>;
 }
 
 const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDePrenda, onClose, onSave, onCreateCliente }) => {
@@ -40,7 +47,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
   const opcionesCliente: SelectOption[] = clientes.map(c => ({ value: c.id, label: `${c.nombre} ${c.apellido}` }));
   const opcionesPrenda: SelectOption[] = tiposDePrenda.map(p => ({ value: p.id, label: `${p.nombre} (${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(p.precio)})` }));
 
-  // --- LÓGICA DE CÁLCULO DE DESCUENTO ---
   const clienteSeleccionado = useMemo(() => {
     return clientes.find(c => c.id === selectedClientId);
   }, [selectedClientId, clientes]);
@@ -57,7 +63,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
       return sum;
     }, 0);
 
-    // Aplicamos el descuento si existe un cliente con descuento fijo
     if (clienteSeleccionado && clienteSeleccionado.descuentoFijo && clienteSeleccionado.descuentoFijo > 0) {
       const descuento = subtotal * (clienteSeleccionado.descuentoFijo / 100);
       setMontoTotal(subtotal - descuento);
@@ -88,13 +93,19 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
     setIsClientModalOpen(true);
   };
 
-  // --- FUNCIÓN ACTUALIZADA PARA MANEJAR LOS NUEVOS DATOS ---
-  const handleSaveNewCliente = async (clienteData: { nombreCompleto: string; telefono: string; dni: string; descuento: number }) => {
+  const handleSaveNewCliente = async (clienteData: { 
+    nombreCompleto: string; 
+    telefono: string;
+    email: string;
+    descuento: number;
+    observaciones: string;
+  }) => {
     const nuevoCliente = await onCreateCliente(
       clienteData.nombreCompleto, 
       clienteData.telefono,
-      clienteData.dni,
-      clienteData.descuento
+      clienteData.email,
+      clienteData.descuento,
+      clienteData.observaciones
     );
     if (nuevoCliente) {
       setSelectedClientId(nuevoCliente.id);
@@ -107,7 +118,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
     if (items.some(item => !item.tipoPrendaId || item.cantidad === '' || item.cantidad <= 0)) { alert('Por favor, complete todas las prendas con una cantidad válida.'); return; }
     if (montoTotal < 0) { alert('El monto total no puede ser negativo.'); return; }
     if (montoTotal === 0 && !window.confirm("El total es $0.00, ¿desea continuar?")) return;
-
+    
     const nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'> = {
       clienteId: isAnonymous ? null : selectedClientId,
       montoTotal: montoTotal,
@@ -218,7 +229,6 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
           </div>
         </div>
 
-        {/* --- NUEVA SECCIÓN PARA MOSTRAR EL DESCUENTO APLICADO --- */}
         {clienteSeleccionado && clienteSeleccionado.descuentoFijo && clienteSeleccionado.descuentoFijo > 0 && !isManualAmount &&
           <div className="descuento-info">
             Aplicado descuento del {clienteSeleccionado.descuentoFijo}%

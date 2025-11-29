@@ -7,20 +7,22 @@ interface AddClientMiniFormProps {
   onSave: (clienteData: { 
     nombreCompleto: string; 
     telefono: string;
-    dni: string;
+    email: string;
     descuento: number;
+    observaciones: string;
   }) => void;
 }
 
 const AddClientMiniForm: React.FC<AddClientMiniFormProps> = ({ nombreInicial, onClose, onSave }) => {
   const [nombreCompleto, setNombreCompleto] = useState(nombreInicial);
   const [telefono, setTelefono] = useState('');
-  const [dni, setDni] = useState('');
-  const [descuento, setDescuento] = useState('0'); // Guardamos como string para el input
+  const [email, setEmail] = useState('');
+  const [descuento, setDescuento] = useState('0');
+  const [observaciones, setObservaciones] = useState('');
 
   const handleSubmit = () => {
-    if (!nombreCompleto.trim() || !telefono.trim() || !dni.trim()) {
-      alert('Por favor, complete nombre, teléfono y DNI.');
+    if (!nombreCompleto.trim()) {
+      alert('El campo Nombre y Apellido es obligatorio.');
       return;
     }
     const descuentoNum = parseInt(descuento, 10);
@@ -28,34 +30,30 @@ const AddClientMiniForm: React.FC<AddClientMiniFormProps> = ({ nombreInicial, on
       alert('El descuento debe ser un número entre 0 y 100.');
       return;
     }
-    onSave({ nombreCompleto, telefono, dni, descuento: descuentoNum });
+    onSave({ nombreCompleto, telefono, email, descuento: descuentoNum, observaciones });
   };
 
   return (
     <form className="add-sale-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
       <div className="form-group">
-        <label htmlFor="nombreCompletoCliente">Nombre y Apellido</label>
+        <label htmlFor="nombreCompletoCliente">Nombre y Apellido*</label>
         <input type="text" id="nombreCompletoCliente" value={nombreCompleto} onChange={e => setNombreCompleto(e.target.value)} required autoFocus />
       </div>
       <div className="form-group">
         <label htmlFor="telefonoCliente">Número de Teléfono</label>
-        <input type="tel" id="telefonoCliente" value={telefono} onChange={e => setTelefono(e.target.value)} required inputMode="tel" />
+        <input type="tel" id="telefonoCliente" value={telefono} onChange={e => setTelefono(e.target.value)} inputMode="tel" />
       </div>
       <div className="form-group">
-        <label htmlFor="dniCliente">DNI</label>
-        <input type="text" id="dniCliente" value={dni} onChange={e => setDni(e.target.value)} required inputMode="numeric" />
+        <label htmlFor="emailCliente">Correo Electrónico</label>
+        <input type="email" id="emailCliente" value={email} onChange={e => setEmail(e.target.value)} />
       </div>
       <div className="form-group">
         <label htmlFor="descuentoCliente">Descuento Fijo (%)</label>
-        <input 
-          type="number" 
-          id="descuentoCliente" 
-          value={descuento} 
-          onChange={e => setDescuento(e.target.value)} 
-          min="0"
-          max="100"
-          placeholder="0"
-        />
+        <input type="number" id="descuentoCliente" value={descuento} onChange={e => setDescuento(e.target.value)} min="0" max="100" placeholder="0" />
+      </div>
+       <div className="form-group">
+        <label htmlFor="observacionesCliente">Observaciones</label>
+        <textarea id="observacionesCliente" rows={3} value={observaciones} onChange={e => setObservaciones(e.target.value)} />
       </div>
       <div className="form-actions">
         <button type="button" className="secondary-button" onClick={onClose}>Cancelar</button>

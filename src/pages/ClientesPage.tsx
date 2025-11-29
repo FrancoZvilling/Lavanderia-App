@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc, onSnapshot, query, orderBy, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { toast } from 'react-toastify';
-import { useRole } from '../context/RoleContext'; // Importamos el hook de roles
+import { useRole } from '../context/RoleContext';
 import ClientCard from '../modules/clientes/ClientCard';
 import Modal from '../components/Modal';
 import ChangeStatusModal from '../modules/clientes/ChangeStatusModal';
@@ -13,7 +13,7 @@ import './ClientesPage.css';
 import './VentasPage.css';
 
 const ClientesPage = () => {
-  const { mode } = useRole(); // Obtenemos el modo actual (admin/empleado)
+  const { mode } = useRole();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,46 +26,56 @@ const ClientesPage = () => {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
   useEffect(() => {
-    const fetchClientes = async () => {
-      try {
-        const clientesCollectionRef = collection(db, 'clientes');
-        const querySnapshot = await getDocs(clientesCollectionRef);
-        
-        const clientesData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          const cliente: Cliente = {
-            id: doc.id,
-            nombre: data.nombre,
-            apellido: data.apellido,
-            contacto: data.contacto,
-            documento: data.documento,
-            telefono: data.telefono,
-            descuentoFijo: data.descuentoFijo,
-            puntos: data.puntos,
-            estadoLavado: data.estadoLavado,
-          };
-          return cliente;
-        });
-        
-        setClientes(clientesData);
-        
-      } catch (error) {
-        console.error("Error al obtener los clientes:", error);
-        toast.error("No se pudieron cargar los clientes desde la base de datos.");
-      } finally {
-        setLoading(false);
-      }
-    };
+    setLoading(true);
+    const q = query(collection(db, 'clientes'), orderBy('apellido'), orderBy('nombre'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const clientesData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        const cliente: Cliente = {
+          id: doc.id,
+          nombre: data.nombre,
+          apellido: data.apellido,
+          contacto: data.contacto,
+          documento: data.documento,
+          telefono: data.telefono,
+          descuentoFijo: data.descuentoFijo,
+          observaciones: data.observaciones,
+          puntos: data.puntos,
+          estadoLavado: data.estadoLavado,
+        };
+        return cliente;
+      });
+      setClientes(clientesData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error al escuchar los clientes:", error);
+      toast.error("No se pudieron cargar los clientes en tiempo real.");
+      setLoading(false);
+    });
 
-    fetchClientes();
+    return () => unsubscribe();
   }, []);
 
+  // --- LÓGICA DE FILTRADO MEJORADA Y ACTUALIZADA ---
   const filteredClientes = useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+
     return clientes.filter(cliente => {
-      const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`.toLowerCase();
-      const searchMatch = nombreCompleto.includes(searchTerm.toLowerCase());
       const statusMatch = statusFilter === 'Todos' || cliente.estadoLavado === statusFilter;
-      return searchMatch && statusMatch;
+      if (!statusMatch) return false;
+
+      if (!term) return true;
+
+      const nombreCompleto = `${cliente.nombre} ${cliente.apellido}`.toLowerCase();
+      const telefono = cliente.telefono || '';
+      const email = cliente.contacto || '';
+
+      return (
+        nombreCompleto.includes(term) ||
+        telefono.includes(term) ||
+        email.toLowerCase().includes(term)
+      );
     });
   }, [searchTerm, statusFilter, clientes]);
 
@@ -84,11 +94,6 @@ const ClientesPage = () => {
     const clienteDocRef = doc(db, 'clientes', clienteSeleccionado.id);
     try {
       await updateDoc(clienteDocRef, { estadoLavado: newStatus });
-      setClientes(prevClientes =>
-        prevClientes.map(c =>
-          c.id === clienteSeleccionado.id ? { ...c, estadoLavado: newStatus } : c
-        )
-      );
       toast.success(`Estado de ${clienteSeleccionado.nombre} actualizado a "${newStatus}".`);
     } catch (error) {
       console.error("Error al actualizar el estado:", error);
@@ -112,14 +117,23 @@ const ClientesPage = () => {
     try {
       const clienteDocRef = doc(db, 'clientes', clienteId);
       await updateDoc(clienteDocRef, updatedData);
-      
-      setClientes(prev => prev.map(c => c.id === clienteId ? { ...c, ...updatedData } : c));
-      
       handleCloseEditModal();
       toast.success("Datos del cliente actualizados con éxito.");
     } catch (error) {
       console.error("Error al actualizar cliente:", error);
       toast.error("Error al actualizar los datos del cliente.");
+    }
+  };
+
+  const handleDeleteCliente = async (cliente: Cliente) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar a ${cliente.nombre} ${cliente.apellido}? Esta acción no se puede deshacer.`)) {
+      try {
+        await deleteDoc(doc(db, 'clientes', cliente.id));
+        toast.success("Cliente eliminado con éxito.");
+      } catch (error) {
+        console.error("Error al eliminar el cliente:", error);
+        toast.error("No se pudo eliminar el cliente.");
+      }
     }
   };
   
@@ -133,7 +147,15 @@ const ClientesPage = () => {
         <h1>Gestión de Clientes</h1>
       </header>
       <div className="filters-container">
-        <input type="text" placeholder="Buscar cliente por nombre..." className="filter-input" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ flexGrow: 1 }} />
+        {/* --- PLACEHOLDER ACTUALIZADO --- */}
+        <input 
+          type="search" 
+          placeholder="Buscar por nombre, teléfono o email..." 
+          className="filter-input" 
+          value={searchTerm} 
+          onChange={(e) => setSearchTerm(e.target.value)} 
+          style={{ flexGrow: 1 }} 
+        />
         <select className="filter-input" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as EstadoLavado | 'Todos')}>
           <option value="Todos">Todos los estados</option>
           <option value="En preparación">En preparación</option>
@@ -149,11 +171,12 @@ const ClientesPage = () => {
             cliente={cliente} 
             onStatusChangeClick={handleOpenStatusModal}
             onEditClick={handleOpenEditModal}
-            mode={mode} // Pasamos el modo actual a la tarjeta
+            onDeleteClick={handleDeleteCliente}
+            mode={mode}
           />
         ))}
         {filteredClientes.length === 0 && !loading && (
-            <p className="no-results">No se encontraron clientes en la base de datos.</p>
+            <p className="no-results">No se encontraron clientes que coincidan con la búsqueda.</p>
         )}
       </div>
 

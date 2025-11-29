@@ -54,6 +54,7 @@
 .card-body {
     display: flex;
     flex-direction: column;
+    flex-grow: 1;
     gap: 15px;
 }
 
@@ -69,6 +70,7 @@
     border-radius: 8px;
     padding: 15px;
     text-align: center;
+    margin-top: auto;
 }
 
 .points-info span {
@@ -108,4 +110,67 @@
   border-top: 1px solid var(--color-secundario);
   display: flex;
   justify-content: center;
+}
+
+.observations-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #7f8c8d;
+  background-color: #f8f9fa;
+  padding: 5px 10px;
+  border-radius: 5px;
+  justify-content: center;
+}
+
+.observations-info.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.observations-info.clickable:hover {
+  background-color: #e0e0e0;
+}
+
+/* Estilos personalizados para el tooltip */
+.custom-tooltip {
+  background-color: var(--color-texto) !important;
+  color: var(--color-blanco) !important;
+  border-radius: 8px !important;
+  padding: 10px 15px !important;
+  max-width: 300px !important; /* Evita que sea demasiado ancho */
+  font-size: 0.9rem !important;
+  opacity: 1 !important;
+  z-index: 9999 !important; /* Asegura que esté por encima de todo */
+}
+
+.custom-tooltip p {
+  margin: 0;
+  white-space: pre-wrap; /* Respeta los saltos de línea */
+}
+
+.discount-info.no-discount {
+  background-color: #f1f5f9; /* Un gris muy claro */
+  color: #7f8c8d; /* Color de texto sutil */
+  font-weight: normal; /* No necesita ser negrita */
+}
+
+.admin-actions {
+  display: flex;
+  gap: 15px; /* Espacio entre los botones de editar y borrar */
+}
+
+/* El botón de editar ya lo teníamos, este es para el de borrar */
+.delete-client-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem; /* Un poco más pequeño que el de editar para diferenciar */
+  color: #bdc3c7;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.delete-client-btn:hover {
+  color: #e74c3c; /* Color rojo al pasar el mouse */
 }
