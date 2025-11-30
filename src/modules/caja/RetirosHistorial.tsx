@@ -20,7 +20,8 @@ const RetirosHistorial: React.FC<RetirosHistorialProps> = ({ retiros }) => {
       <table>
         <thead>
           <tr>
-            <th>Encargado</th>
+            {/* --- CAMBIO DE TÍTULO --- */}
+            <th>Beneficiario</th>
             <th>Fecha</th>
             <th>Motivo</th>
             <th>Monto</th>
@@ -30,9 +31,14 @@ const RetirosHistorial: React.FC<RetirosHistorialProps> = ({ retiros }) => {
         <tbody>
           {retiros.map((retiro) => (
             <tr key={retiro.id}>
-              <td data-label="Encargado"><strong>{retiro.empleadoNombre}</strong></td>
+              {/* --- CAMBIO DE PROPIEDADES --- */}
+              <td data-label="Beneficiario">
+                <strong>{retiro.nombreBeneficiario}</strong>
+                {/* Mostramos la categoría debajo para más contexto */}
+                <small style={{display: 'block', color: '#7f8c8d'}}>{retiro.categoriaBeneficiario}</small>
+              </td>
               <td data-label="Fecha">{formatFecha(retiro.fecha)}</td>
-              <td data-label="Motivo">{retiro.motivo}</td>
+              <td data--label="Motivo">{retiro.motivo}</td>
               <td data-label="Monto">{formatMoneda(retiro.monto)}</td>
               <td data-label="Método">{retiro.metodo}</td>
             </tr>

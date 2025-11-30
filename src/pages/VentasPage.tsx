@@ -13,9 +13,10 @@ import ProcesarPagoModal from '../modules/ventas/ProcesarPagoModal';
 import Modal from '../components/Modal';
 import AddSaleForm from '../modules/ventas/AddSaleForm';
 import VentaDetallesModal from '../modules/ventas/VentaDetallesModal';
+import DevolucionModal from '../modules/ventas/DevolucionModal'; // Importamos el nuevo modal
 import Spinner from '../components/Spinner';
 import Ticket from '../modules/ventas/Ticket';
-import type { Venta, TipoDePrenda, Cliente, MetodoDePago } from '../types';
+import type { Venta, TipoDePrenda, Cliente, MetodoDePago} from '../types';
 import './VentasPage.css';
 
 const PAGE_SIZE = 15;
@@ -57,22 +58,27 @@ const VentasPage = () => {
 
   const [proximoTicket, setProximoTicket] = useState<string | null>(null);
 
-  // Estados para la generación del ticket
   const [ticketData, setTicketData] = useState<Venta | null>(null);
   const ticketRef = useRef<HTMLDivElement>(null);
+
+  // Nuevos estados para el modal de devolución
+  const [isDevolucionModalOpen, setIsDevolucionModalOpen] = useState(false);
+  const [ventaParaDevolver, setVentaParaDevolver] = useState<Venta | null>(null);
 
   useEffect(() => {
     const fetchStaticData = async () => {
       try {
         const [clientesSnapshot, prendasSnapshot] = await Promise.all([
           getDocs(collection(db, 'clientes')),
-          getDocs(collection(db, 'tiposDePrenda'))
+          getDocs(collection(db, 'tiposDePrenda')),
+          getDocs(collection(db, 'empleados')),
         ]);
         setClientes(clientesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Cliente)));
         setTiposDePrenda(prendasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipoDePrenda)));
+        
       } catch (error) {
         console.error("Error al cargar datos estáticos:", error);
-        toast.error("Error al cargar clientes y tipos de prenda.");
+        toast.error("Error al cargar datos de configuración.");
       }
     };
     fetchStaticData();
@@ -157,7 +163,6 @@ const VentasPage = () => {
     return () => unsubscribe();
   }, [debouncedFilterDate, debouncedFilterClientId, debouncedTicketSearch]);
 
-  // useEffect para la generación del ticket
   useEffect(() => {
     if (ticketData && ticketRef.current) {
       const generarYDescargar = async () => {
@@ -279,7 +284,7 @@ const VentasPage = () => {
     if (ventaConTicket.metodoDePago === 'Cuenta Corriente') {
       try {
         await addDoc(collection(db, 'ventasPendientes'), { ...ventaConTicket, fecha: Timestamp.fromDate(new Date()) });
-        toast.success(`Ticket #${proximoTicket} enviado a Cuenta Corriente.`);
+        toast.success(`Ticket #${proximoTicket} enviado a Pendiente de Pago.`);
       } catch (error) {
         console.error("Error al guardar en cuenta corriente:", error);
         toast.error("No se pudo guardar la venta en cuenta corriente.");
@@ -310,6 +315,22 @@ const VentasPage = () => {
       } catch (error) {
         console.error("Error al guardar venta:", error);
         toast.error("No se pudo registrar la venta.");
+      }
+    }
+    setIsAddModalOpen(false);
+    setProximoTicket(null);
+  };
+  
+  const handleCancelSale = async () => {
+    if (proximoTicket) {
+      try {
+        const counterRef = doc(db, 'configuracion', 'counters');
+        await updateDoc(counterRef, {
+          ultimoTicket: increment(-1)
+        });
+        console.log(`Ticket #${proximoTicket} devuelto al contador.`);
+      } catch (error) {
+        console.error("Error al devolver el ticket:", error);
       }
     }
     setIsAddModalOpen(false);
@@ -373,38 +394,25 @@ const VentasPage = () => {
   
  const handleCreateCliente = async (nombreCompleto: string, telefono: string, email: string, descuento: number, observaciones: string): Promise<Cliente | null> => {
     try {
-      // Separamos el nombre y el apellido del nombre completo
       const nombreSplit = nombreCompleto.split(' ');
       const nombre = nombreSplit[0] || '';
       const apellido = nombreSplit.slice(1).join(' ') || '';
-
-      // Construimos el objeto completo del nuevo cliente con los nuevos campos
       const newClientData = {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         telefono: telefono.trim(),
-        contacto: email.trim(), // Guardamos el email en la propiedad 'contacto'
-        observaciones: observaciones.trim(), // Guardamos las observaciones
+        contacto: email.trim(),
+        observaciones: observaciones.trim(),
         descuentoFijo: descuento,
         puntos: 0,
         estadoLavado: 'Entregado' as const,
-        documento: '', // Guardamos un DNI vacío ya que no se solicita
+        documento: '',
       };
-
-      // Guardamos el nuevo documento en la colección 'clientes'
       const docRef = await addDoc(collection(db, 'clientes'), newClientData);
-      
-      // Creamos el objeto completo para el estado de React, incluyendo el nuevo ID
       const nuevoCliente: Cliente = { id: docRef.id, ...newClientData };
-
-      // Actualizamos el estado local para que el nuevo cliente aparezca en el desplegable
       setClientes(prev => [...prev, nuevoCliente].sort((a,b) => (a.apellido + a.nombre).localeCompare(b.apellido + b.nombre)));
-      
       toast.success(`Cliente "${nombreCompleto}" creado con éxito.`);
-      
-      // Devolvemos el objeto del nuevo cliente para que pueda ser auto-seleccionado
       return nuevoCliente;
-
     } catch (error) {
       console.error("Error al crear el cliente:", error);
       toast.error("No se pudo crear el nuevo cliente.");
@@ -446,6 +454,55 @@ const VentasPage = () => {
     setTicketData(venta);
   };
 
+  const handleOpenDevolucionModal = (venta: Venta) => {
+    if (!cajaActual) {
+      toast.error("Debe haber una caja abierta para procesar una devolución.");
+      return;
+    }
+    setVentaParaDevolver(venta);
+    setIsDevolucionModalOpen(true);
+  };
+
+ const handleConfirmarDevolucion = async (devolucionData: { motivo: string; metodo: 'Efectivo' | 'Transferencia'; }) => {
+    if (!ventaParaDevolver || !cajaActual) return;
+    
+    const clienteDeVenta = clientes.find(c => c.id === ventaParaDevolver.clienteId);
+    
+    try {
+      // 1. Creamos el retiro (Esto ya estaba)
+      await addDoc(collection(db, 'retiros'), {
+        monto: ventaParaDevolver.montoTotal,
+        metodo: devolucionData.metodo,
+        motivo: devolucionData.motivo,
+        beneficiario: clienteDeVenta ? `${clienteDeVenta.nombre} ${clienteDeVenta.apellido}` : 'Cliente Anónimo',
+        categoriaBeneficiario: `Devolución Ticket #${ventaParaDevolver.nroTicket}`,
+        empleadoId: cajaActual.empleadoId || 'admin',
+        empleadoNombre: cajaActual.empleadoNombre || 'Administrador',
+        cajaId: cajaActual.id,
+        fecha: Timestamp.fromDate(new Date()),
+      });
+
+      // 2. NUEVO: Actualizamos la venta original para marcarla como devuelta
+      const ventaRef = doc(db, 'ventas', ventaParaDevolver.id);
+      await updateDoc(ventaRef, { devuelta: true });
+
+      // 3. Actualizamos el estado local para ver el cambio instantáneamente
+      setVentas(prevVentas => 
+        prevVentas.map(v => 
+          v.id === ventaParaDevolver.id ? { ...v, devuelta: true } : v
+        )
+      );
+
+      toast.success("Devolución registrada con éxito.");
+      setIsDevolucionModalOpen(false);
+      setVentaParaDevolver(null);
+      
+    } catch (error) {
+      console.error("Error al registrar la devolución:", error);
+      toast.error("No se pudo registrar la devolución.");
+    }
+  };
+
   if (loadingCaja) {
     return <Spinner />;
   }
@@ -469,7 +526,7 @@ const VentasPage = () => {
 
       <section className="config-section">
         <header className="page-header">
-          <h2>Cuenta Corriente ({filteredVentasPendientes.length})</h2>
+          <h2>Pendiente de pago ({filteredVentasPendientes.length})</h2>
           <button className="secondary-button" onClick={() => setShowPendientes(!showPendientes)}>
             {showPendientes ? <FaChevronUp/> : <FaChevronDown/>}
             <span style={{marginLeft: '8px'}}>{showPendientes ? 'Ocultar' : 'Mostrar'}</span>
@@ -497,6 +554,7 @@ const VentasPage = () => {
                   onAnular={handleAnularVentaPendiente}
                   onVerDetalles={handleOpenDetailsModal}
                   onImprimirTicket={handleImprimirTicket}
+                  
                 />
               ) : (
                 <p style={{textAlign: 'center', color: '#7f8c8d'}}>No hay ventas pendientes en cuenta corriente.</p>
@@ -546,6 +604,7 @@ const VentasPage = () => {
               clientes={clientes} 
               onVerDetalles={handleOpenDetailsModal}
               onImprimirTicket={handleImprimirTicket}
+              onDevolucion={handleOpenDevolucionModal}
             />
             {ventas.length === 0 &&
               <p style={{textAlign: 'center', color: '#7f8c8d', padding: '20px'}}>No se encontraron ventas para los filtros seleccionados.</p>
@@ -561,12 +620,12 @@ const VentasPage = () => {
         }
       </div>
       
-      <Modal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setProximoTicket(null); }} title={`Registrar Nueva Venta - Ticket #${proximoTicket}`}>
+      <Modal isOpen={isAddModalOpen} onClose={handleCancelSale} title={`Registrar Nueva Venta`}>
         <AddSaleForm 
             nroTicket={proximoTicket}
             clientes={clientes} 
             tiposDePrenda={tiposDePrenda} 
-            onClose={() => { setIsAddModalOpen(false); setProximoTicket(null); }}
+            onClose={handleCancelSale}
             onSave={handleSaveVenta} 
             onCreateCliente={handleCreateCliente}
         />
@@ -576,7 +635,7 @@ const VentasPage = () => {
         <Modal 
           isOpen={isDetailsModalOpen} 
           onClose={handleCloseDetailsModal} 
-          title={`Detalles de la Venta - Ticket #${ventaSeleccionada.nroTicket}`}
+          title={`Detalles de la Venta`}
         >
           <VentaDetallesModal 
             venta={ventaSeleccionada}
@@ -596,12 +655,30 @@ const VentasPage = () => {
         </Modal>
       )}
 
+      {ventaParaDevolver && (
+        <Modal 
+          isOpen={isDevolucionModalOpen} 
+          onClose={() => setIsDevolucionModalOpen(false)} 
+          title={`Registrar Devolución - Ticket #${ventaParaDevolver.nroTicket}`}
+        >
+          <DevolucionModal
+            venta={ventaParaDevolver}
+            cliente={clientes.find(c => c.id === ventaParaDevolver.clienteId)}
+            onClose={() => setIsDevolucionModalOpen(false)}
+            onConfirm={handleConfirmarDevolucion}
+          />
+        </Modal>
+      )}
+
       <div ref={ticketRef}>
         {ticketData && (
           <div className="ticket-wrapper">
             <Ticket 
               venta={ticketData}
               cliente={clientes.find(c => c.id === ticketData.clienteId)}
+              esPagado={!!ticketData.cajaId}
+              // 2. Pasamos la propiedad de la venta
+              esDevolucion={ticketData.devuelta} 
             />
           </div>
         )}

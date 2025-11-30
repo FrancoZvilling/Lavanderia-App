@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Cliente, Venta } from '../../types';
 import './VentaDetallesModal.css';
+// Importamos los estilos del formulario para reutilizar las clases del resumen de total
+import './AddSaleForm.css';
 
-// 1. Actualizamos la interfaz para recibir la función de guardado
 interface VentaDetallesModalProps {
   venta: Venta;
   cliente: Cliente | undefined;
@@ -10,14 +11,11 @@ interface VentaDetallesModalProps {
 }
 
 const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente, onSaveChanges }) => {
-  // 2. Añadimos estados para manejar la edición
   const [observaciones, setObservaciones] = useState(venta.observaciones || '');
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Función que se ejecuta cada vez que el usuario escribe en el textarea
   const handleObservacionesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setObservaciones(e.target.value);
-    // Comparamos con el valor original para saber si hay cambios reales
     if (e.target.value !== (venta.observaciones || '')) {
       setHasChanges(true);
     } else {
@@ -25,14 +23,26 @@ const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente,
     }
   };
 
-  // Función que se llama al hacer clic en "Guardar Cambios"
   const handleGuardar = () => {
     onSaveChanges(venta.id, observaciones);
-    // Reseteamos el estado de cambios para deshabilitar el botón de nuevo
     setHasChanges(false);
   };
 
   const formatMoneda = (monto: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
+
+  // --- LÓGICA PARA CALCULAR EL DESGLOSE DEL PRECIO ---
+  const { subtotal, montoDescuento } = useMemo(() => {
+    // Si el cliente tiene un descuento fijo y es mayor a 0
+    if (cliente?.descuentoFijo && cliente.descuentoFijo > 0) {
+      // Usamos la fórmula inversa para calcular el subtotal original antes del descuento
+      // total = subtotal * (1 - descuento/100) => subtotal = total / (1 - descuento/100)
+      const sub = venta.montoTotal / (1 - (cliente.descuentoFijo / 100));
+      const desc = sub - venta.montoTotal;
+      return { subtotal: sub, montoDescuento: desc };
+    }
+    // Si no hubo descuento, el subtotal es simplemente el monto total de la venta
+    return { subtotal: venta.montoTotal, montoDescuento: 0 };
+  }, [venta.montoTotal, cliente?.descuentoFijo]);
 
   return (
     <div className="detalles-container">
@@ -43,6 +53,13 @@ const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente,
         <h4>Cliente</h4>
         <p>{cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente Anónimo'}</p>
       </div>
+
+      {cliente && cliente.telefono && (
+        <div className="detalle-seccion">
+          <h4>Teléfono</h4>
+          <p>{cliente.telefono}</p>
+        </div>
+      )}
       
       <div className="detalle-seccion">
         <h4>Prendas Incluidas</h4>
@@ -55,10 +72,8 @@ const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente,
         </ul>
       </div>
 
-      {/* --- SECCIÓN DE OBSERVACIONES MODIFICADA --- */}
       <div className="detalle-seccion">
         <h4>Observaciones</h4>
-        {/* Reemplazamos el <p> por un <textarea> interactivo */}
         <textarea
           className="observaciones-textarea"
           rows={4}
@@ -68,19 +83,31 @@ const VentaDetallesModal: React.FC<VentaDetallesModalProps> = ({ venta, cliente,
         />
       </div>
 
-      <div className="detalle-seccion total-final">
-        <h4>Monto Total Pagado</h4>
-        <p>
-          {formatMoneda(venta.montoTotal)}
-        </p>
+      {/* --- SECCIÓN DE TOTALES ACTUALIZADA CON EL DESGLOSE --- */}
+      <div className="total-summary" style={{ marginTop: 0 }}>
+        <div className="summary-row">
+            <span>Subtotal:</span>
+            <span>{formatMoneda(subtotal)}</span>
+        </div>
+        {/* Solo mostramos la fila del descuento si el monto del descuento es mayor a 0 */}
+        {montoDescuento > 0 && (
+            <div className="summary-row discount">
+                <span>Descuento ({cliente?.descuentoFijo}%):</span>
+                <span>- {formatMoneda(montoDescuento)}</span>
+            </div>
+        )}
       </div>
 
-      {/* --- NUEVA SECCIÓN PARA EL BOTÓN DE GUARDADO --- */}
+      <div className="total-container">
+        <strong>Total Pagado:</strong>
+        <span>{formatMoneda(venta.montoTotal)}</span>
+      </div>
+
       <div className="modal-actions-footer">
         <button 
           className="primary-button" 
           onClick={handleGuardar} 
-          disabled={!hasChanges} // El botón está deshabilitado si no hay cambios
+          disabled={!hasChanges}
         >
           Guardar Cambios
         </button>

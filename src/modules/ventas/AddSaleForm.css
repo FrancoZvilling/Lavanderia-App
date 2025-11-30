@@ -170,3 +170,35 @@
   margin-top: -10px;
   margin-bottom: 10px;
 }
+
+.total-summary {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid var(--color-secundario);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+}
+
+.summary-row.discount span {
+  color: #27ae60; /* Verde para el descuento */
+  font-weight: 500;
+}
+
+/* Ajustamos el contenedor del total final */
+.total-container {
+  border-top: 2px solid var(--color-texto);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.summary-row.no-discount span {
+  color: #7f8c8d; /* Un gris sutil */
+  font-style: italic;
+}

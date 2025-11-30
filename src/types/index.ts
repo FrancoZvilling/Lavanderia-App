@@ -39,6 +39,7 @@ export interface Venta {
   nroTicket?: string; 
   montoTotal: number;
   metodoDePago: MetodoDePago;
+  devuelta?: boolean;
   items: {
     nombrePrenda: string;
     cantidad: number;
@@ -62,13 +63,25 @@ export interface MotivoIngreso {
   nombre: string;
 }
 
+// NUEVA INTERFAZ para los tipos de beneficiario (ej: Proveedores)
+export interface TipoBeneficiario {
+  id: string;
+  nombre: string;
+}
+
+// NUEVA INTERFAZ para los items dentro de un tipo (ej: Proveedor de Jabón)
+export interface ItemBeneficiario {
+  id: string;
+  nombre: string;
+}
+
 export interface Retiro {
   id: string;
   monto: number;
   metodo: 'Efectivo' | 'Transferencia';
   motivo: string;
-  empleadoId: string;
-  empleadoNombre: string;
+  categoriaBeneficiario: string;
+  nombreBeneficiario: string; 
   fecha: Timestamp;
   cajaId: string;
 }

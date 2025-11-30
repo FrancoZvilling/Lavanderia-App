@@ -85,3 +85,7 @@
 .ticket-footer p {
   margin: 0 0 5px 0;
 }
+
+.ticket-total-row.pagado strong {
+  color: #27ae60; /* Color verde para indicar que está pagado */
+}

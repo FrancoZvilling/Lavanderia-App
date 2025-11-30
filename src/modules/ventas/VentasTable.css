@@ -17,18 +17,39 @@ tbody tr:hover { background-color: #f1f5f9; }
 .observaciones-preview { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cliente-principal strong { font-size: 1.1rem; }
 
-/* --- MEDIA QUERY PARA TRANSFORMAR LA TABLA A TARJETAS EN MÓVIL --- */
+.etiqueta-devuelta {
+  display: inline-block;
+  padding: 5px 10px;
+  background-color: #e74c3c; /* Rojo */
+  color: white;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 0.8rem;
+  text-align: center;
+  cursor: default;
+}
+
+/* Opcional: Atenuar la fila completa si está devuelta */
+.fila-devuelta td {
+  opacity: 0.7;
+}
+/* Pero mantenemos los botones visibles */
+.fila-devuelta .acciones {
+  opacity: 1;
+}
+
+/* --- MEDIA QUERY PARA MÓVIL --- */
 @media (max-width: 768px) {
   .ventas-table {
-    overflow-x: hidden; /* Desactivamos el scroll horizontal en móvil */
+    overflow-x: hidden;
   }
 
   .ventas-table thead {
-    display: none; /* Ocultamos los encabezados de la tabla */
+    display: none;
   }
 
   .ventas-table tr {
-    display: block; /* Cada fila se comporta como una tarjeta */
+    display: block;
     background-color: var(--color-blanco);
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -38,27 +59,60 @@ tbody tr:hover { background-color: #f1f5f9; }
   }
   
   .ventas-table td {
-    display: block; /* Cada celda es una fila dentro de la tarjeta */
+    display: block;
     padding: 8px 0;
-    text-align: right; /* Alineamos el contenido a la derecha */
+    text-align: right;
     border-bottom: 1px solid #eee;
   }
 
   .ventas-table td:last-child {
-    border-bottom: none; /* Sin línea en la última celda */
+    border-bottom: none;
     padding-top: 15px;
-    text-align: center; /* Centramos el botón de acciones */
+    padding-bottom: 5px;
   }
 
-  /* La magia de los labels: creamos la etiqueta a la izquierda */
+  /* Contenedor flex para los botones */
+  .ventas-table .acciones {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+  }
+
+  /* Estilos para los botones */
+  .ventas-table .acciones button {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 0; /* Padding vertical para que sean altos */
+    font-size: 1.2rem; /* Iconos más grandes */
+    margin: 0;
+  }
+
+  /* --- LA REGLA MÁGICA: OCULTAR EL TEXTO DENTRO DE LOS BOTONES --- */
+  .ventas-table .acciones button span {
+    display: none;
+  }
+
+  /* La etiqueta DEVUELTA mantiene su texto y estilo */
+  .ventas-table .acciones .etiqueta-devuelta {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  /* Labels a la izquierda */
   .ventas-table td::before {
-    content: attr(data-label); /* Tomamos el texto del atributo data-label */
-    float: left; /* Lo ponemos a la izquierda */
+    content: attr(data-label);
+    float: left;
     font-weight: bold;
     color: var(--color-texto);
   }
 
-  /* Estilos especiales para la primera fila (Cliente) para que actúe como título */
+  /* Título de la tarjeta (Cliente) */
   .ventas-table td.cliente-principal {
     text-align: left;
     font-size: 1.2rem;
@@ -68,6 +122,6 @@ tbody tr:hover { background-color: #f1f5f9; }
   }
 
   .ventas-table td.cliente-principal::before {
-    display: none; /* No necesitamos el label "Cliente" en el título */
+    display: none;
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, addDoc, doc, updateDoc, query, where, orderBy, limit, startAfter, Timestamp } from 'firebase/firestore';
 import type { DocumentData } from 'firebase/firestore';
 import { type BillCounts } from '../modules/caja/BillCounter';
@@ -19,13 +20,14 @@ import IngresosHistorial from '../modules/caja/IngresosHistorial';
 import Modal from '../components/Modal';
 import Spinner from '../components/Spinner';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import type { RegistroCaja, Empleado, MetodoDePago, MotivoRetiro, Retiro, Ingreso, MotivoIngreso } from '../types';
+import type { RegistroCaja, Empleado, MetodoDePago, Retiro, Ingreso, MotivoIngreso, TipoBeneficiario, ItemBeneficiario } from '../types';
 import './VentasPage.css';
 import './ConfiguracionPage.css';
 
 const PAGE_SIZE_CAJA = 15;
 
 const CajaPage = () => {
+  const navigate = useNavigate();
   const { mode } = useRole();
   const { cajaActual, loadingCaja } = useCaja();
   
@@ -51,7 +53,6 @@ const CajaPage = () => {
   const [montoCierreAnterior, setMontoCierreAnterior] = useState<number | null>(null);
   
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
-  const [motivosRetiro, setMotivosRetiro] = useState<MotivoRetiro[]>([]);
   const [motivosIngreso, setMotivosIngreso] = useState<MotivoIngreso[]>([]);
   
   const [showRetiros, setShowRetiros] = useState(false);
@@ -65,6 +66,9 @@ const CajaPage = () => {
   const [loadingIngresos, setLoadingIngresos] = useState(false);
   const [filterDateIngresos, setFilterDateIngresos] = useState<string>(todayString);
   const debouncedFilterDateIngresos = useDebounce(filterDateIngresos, 400);
+
+  const [tiposDeBeneficiario, setTiposDeBeneficiario] = useState<TipoBeneficiario[]>([]);
+  const [itemsPorTipo, setItemsPorTipo] = useState<{ [key: string]: ItemBeneficiario[] }>({});
 
   useEffect(() => {
     let isCancelled = false;
@@ -154,14 +158,29 @@ const CajaPage = () => {
       } catch (error) { console.error("Error al obtener el último cierre de caja:", error); }
 
       try {
-        const [empleadosSnapshot, motivosRetiroSnapshot, motivosIngresoSnapshot] = await Promise.all([
+        const [empleadosSnapshot, motivosIngresoSnapshot, tiposBeneficiarioSnapshot] = await Promise.all([
             getDocs(query(collection(db, 'empleados'), orderBy('nombreCompleto'))),
             getDocs(query(collection(db, 'motivosRetiro'), orderBy('nombre'))),
             getDocs(query(collection(db, 'motivosIngreso'), orderBy('nombre'))),
+            getDocs(query(collection(db, 'tiposDeBeneficiario'), orderBy('nombre'))),
         ]);
         setEmpleados(empleadosSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Empleado)));
-        setMotivosRetiro(motivosRetiroSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoRetiro)));
+        
         setMotivosIngreso(motivosIngresoSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MotivoIngreso)));
+        
+        const tiposData = tiposBeneficiarioSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TipoBeneficiario));
+        setTiposDeBeneficiario(tiposData);
+
+        const itemsPromises = tiposData.map(tipo => getDocs(collection(db, `tiposDeBeneficiario/${tipo.id}/items`)));
+        const itemsSnapshots = await Promise.all(itemsPromises);
+        
+        const itemsMap: { [key: string]: ItemBeneficiario[] } = {};
+        itemsSnapshots.forEach((snapshot, index) => {
+            const tipoId = tiposData[index].id;
+            itemsMap[tipoId] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ItemBeneficiario));
+        });
+        setItemsPorTipo(itemsMap);
+
       } catch (error) {
         console.error("Error al obtener datos de configuración:", error);
         toast.error("No se pudo cargar la configuración.");
@@ -314,41 +333,37 @@ const CajaPage = () => {
     }
   };
 
-  const handleCerrarCaja = async (montoFinal: number, desglose: BillCounts) => {
+  const handleAttemptCloseCaja = async () => {
     if (!cajaActual) return;
-
     try {
       const ventasPendientesRef = collection(db, 'ventasPendientes');
       const querySnapshot = await getDocs(ventasPendientesRef);
 
       if (!querySnapshot.empty) {
         const confirmPromise = new Promise<void>((resolve, reject) => {
-          const onConfirm = () => { toast.dismiss(); resolve(); };
-          const onCancel = () => { toast.dismiss(); reject(); };
-
+          const onConfirm = () => { toast.dismiss('confirm-cierre'); resolve(); };
+          const goToVentas = () => {
+            navigate('/');
+            toast.dismiss('confirm-cierre');
+            reject(new Error('Navegando a Pagos Pendientes.'));
+          };
           toast.warn(
             <div>
-              <p>Todavía hay {querySnapshot.size} pedido(s) sin procesar en Cuenta Corriente.</p>
-              <p><strong>¿Seguro que quiere cerrar la caja?</strong></p>
+              <p>Todavía hay {querySnapshot.size} pedido(s) con pago pendiente.</p>
+              <p><strong>¿Seguro que quiere cerrar la caja de todos modos?</strong></p>
               <div className="confirmation-buttons">
-                <button onClick={onCancel} className="secondary-button small-button">Cancelar</button>
+                <button onClick={goToVentas} className="secondary-button small-button">Ir a Pagos Pendientes</button>
                 <button onClick={onConfirm} className="primary-button small-button">Sí, cerrar</button>
               </div>
             </div>,
             { autoClose: false, closeOnClick: false, closeButton: false, toastId: 'confirm-cierre' }
           );
         });
-
-        await toast.promise(confirmPromise, {
-            pending: 'Esperando confirmación...',
-            error: 'Cierre de caja cancelado.'
-        });
+        await toast.promise(confirmPromise, { error: 'Cierre de caja cancelado.' });
       }
-
-      await procederConElCierre(montoFinal, desglose);
-
+      setIsCerrarModalOpen(true);
     } catch (error) {
-      console.log("Error o cancelación en el proceso de cierre:", error);
+      console.log("Proceso de cierre detenido:", error);
     }
   };
 
@@ -359,67 +374,36 @@ const CajaPage = () => {
         acc[venta.metodoDePago] = (acc[venta.metodoDePago] || 0) + venta.montoTotal;
         return acc;
     }, { Efectivo: 0, Transferencia: 0, Débito: 0, Crédito: 0 } as Record<MetodoDePago, number>);
-
     const totalVentasDelDia = Object.values(subtotales).reduce((sum, current) => sum + current, 0);
-
     const retirosEfectivo = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Efectivo').reduce((sum, r) => sum + r.monto, 0);
     const retirosTransferencia = (cajaActual.retirosDelDia || []).filter(r => r.metodo === 'Transferencia').reduce((sum, r) => sum + r.monto, 0);
-    
     const ingresosManualesEfectivo = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Efectivo').reduce((sum, i) => sum + i.monto, 0);
     const ingresosManualesTransferencia = (cajaActual.ingresosDelDia || []).filter(i => i.metodo === 'Transferencia').reduce((sum, i) => sum + i.monto, 0);
-
     const desgloseLimpio = Object.entries(desglose).reduce((acc, [key, value]) => {
-      if (value > 0) {
-        acc[key] = value;
-      }
+      if (value > 0) { acc[key] = value; }
       return acc;
     }, {} as { [key: string]: number });
-
     const cajaDocRef = doc(db, 'cajas', cajaActual.id);
     const fechaDeCierre = Timestamp.fromDate(new Date());
-
     try {
         await updateDoc(cajaDocRef, {
-            montoFinal,
-            fechaCierre: fechaDeCierre,
-            desgloseCierre: desgloseLimpio,
-            totalVentas: totalVentasDelDia,
-            totalEfectivo: subtotales.Efectivo,
-            totalTransferencia: subtotales.Transferencia,
-            totalDebito: subtotales.Débito,
-            totalCredito: subtotales.Crédito,
-            totalRetirosEfectivo: retirosEfectivo,
-            totalRetirosTransferencia: retirosTransferencia,
-            totalIngresosManualesEfectivo: ingresosManualesEfectivo,
-            totalIngresosManualesTransferencia: ingresosManualesTransferencia,
+            montoFinal, fechaCierre: fechaDeCierre, desgloseCierre: desgloseLimpio, totalVentas: totalVentasDelDia,
+            totalEfectivo: subtotales.Efectivo, totalTransferencia: subtotales.Transferencia, totalDebito: subtotales.Débito, totalCredito: subtotales.Crédito,
+            totalRetirosEfectivo: retirosEfectivo, totalRetirosTransferencia: retirosTransferencia,
+            totalIngresosManualesEfectivo: ingresosManualesEfectivo, totalIngresosManualesTransferencia: ingresosManualesTransferencia,
         });
-
         const cajaCerrada: RegistroCaja = { 
-            ...cajaActual, 
-            montoFinal, 
-            fechaCierre: fechaDeCierre, 
-            desgloseCierre: desgloseLimpio,
-            totalVentas: totalVentasDelDia,
-            totalEfectivo: subtotales.Efectivo,
-            totalTransferencia: subtotales.Transferencia,
-            totalDebito: subtotales.Débito,
-            totalCredito: subtotales.Crédito,
-            totalRetirosEfectivo: retirosEfectivo,
-            totalRetirosTransferencia: retirosTransferencia,
-            totalIngresosManualesEfectivo: ingresosManualesEfectivo,
-            totalIngresosManualesTransferencia: ingresosManualesTransferencia,
-            ventasDelDia: [],
-            retirosDelDia: [], 
-            ingresosDelDia: [],
+            ...cajaActual, montoFinal, fechaCierre: fechaDeCierre, desgloseCierre: desgloseLimpio,
+            totalVentas: totalVentasDelDia, totalEfectivo: subtotales.Efectivo, totalTransferencia: subtotales.Transferencia,
+            totalDebito: subtotales.Débito, totalCredito: subtotales.Crédito, totalRetirosEfectivo: retirosEfectivo,
+            totalRetirosTransferencia: retirosTransferencia, totalIngresosManualesEfectivo: ingresosManualesEfectivo,
+            totalIngresosManualesTransferencia: ingresosManualesTransferencia, ventasDelDia: [], retirosDelDia: [], ingresosDelDia: [],
         };
-        
         const fechaCerradaLocal = new Date(fechaDeCierre.toMillis());
         const fechaCerradaStr = `${fechaCerradaLocal.getFullYear()}-${String(fechaCerradaLocal.getMonth() + 1).padStart(2, '0')}-${String(fechaCerradaLocal.getDate()).padStart(2, '0')}`;
-        
         if (fechaCerradaStr === filterDateCaja) {
             setHistorialCajas(prev => [cajaCerrada, ...prev].sort((a,b) => b.fechaCierre!.toMillis() - a.fechaCierre!.toMillis()));
         }
-        
         setMontoCierreAnterior(montoFinal);
         setIsCerrarModalOpen(false);
         toast.success("Caja cerrada con éxito.");
@@ -429,7 +413,7 @@ const CajaPage = () => {
     }
   };
   
-  const handleSaveRetiro = async (retiroData: { monto: number; metodo: 'Efectivo' | 'Transferencia'; motivo: string; empleado: { id: string; nombre: string; };}) => {
+  const handleSaveRetiro = async (retiroData: { monto: number; metodo: 'Efectivo' | 'Transferencia'; motivo: string; categoria: string; beneficiario: string; }) => {
     if (!cajaActual) return;
     
     const ingresosEfectivo = (cajaActual.ventasDelDia || []).filter(v => v.metodoDePago === 'Efectivo').reduce((sum, v) => sum + v.montoTotal, 0);
@@ -447,8 +431,8 @@ const CajaPage = () => {
         monto: retiroData.monto,
         metodo: retiroData.metodo,
         motivo: retiroData.motivo,
-        empleadoId: retiroData.empleado.id,
-        empleadoNombre: retiroData.empleado.nombre,
+        categoriaBeneficiario: retiroData.categoria,
+        nombreBeneficiario: retiroData.beneficiario,
         cajaId: cajaActual.id,
         fecha: Timestamp.fromDate(new Date()),
       });
@@ -480,18 +464,6 @@ const CajaPage = () => {
     }
   };
   
-  const handleCreateMotivoRetiro = async (nombreMotivo: string): Promise<MotivoRetiro> => {
-    try {
-        const docRef = await addDoc(collection(db, 'motivosRetiro'), { nombre: nombreMotivo });
-        const nuevoMotivo = { id: docRef.id, nombre: nombreMotivo };
-        setMotivosRetiro(prev => [...prev, nuevoMotivo].sort((a,b) => a.nombre.localeCompare(b.nombre)));
-        toast.info(`Nuevo motivo "${nombreMotivo}" creado.`);
-        return nuevoMotivo;
-    } catch (error) {
-        toast.error("No se pudo crear el nuevo motivo.");
-        return { id: 'error-' + Date.now(), nombre: nombreMotivo };
-    }
-  };
 
   const handleCreateMotivoIngreso = async (nombreMotivo: string): Promise<MotivoIngreso> => {
     try {
@@ -506,6 +478,35 @@ const CajaPage = () => {
     }
   };
 
+  const handleCreateTipoBeneficiario = async (nombre: string): Promise<TipoBeneficiario> => {
+    try {
+      const docRef = await addDoc(collection(db, 'tiposDeBeneficiario'), { nombre });
+      const nuevoTipo = { id: docRef.id, nombre };
+      setTiposDeBeneficiario(prev => [...prev, nuevoTipo].sort((a,b) => a.nombre.localeCompare(b.nombre)));
+      toast.info(`Nueva categoría "${nombre}" creada.`);
+      return nuevoTipo;
+    } catch (error) {
+      toast.error("No se pudo crear la categoría.");
+      return { id: 'error', nombre };
+    }
+  };
+
+  const handleCreateItemBeneficiario = async (tipoId: string, nombre: string): Promise<ItemBeneficiario> => {
+    try {
+      const docRef = await addDoc(collection(db, `tiposDeBeneficiario/${tipoId}/items`), { nombre });
+      const nuevoItem = { id: docRef.id, nombre };
+      setItemsPorTipo(prev => ({
+        ...prev,
+        [tipoId]: [...(prev[tipoId] || []), nuevoItem].sort((a,b) => a.nombre.localeCompare(b.nombre))
+      }));
+      toast.info(`Nuevo ítem "${nombre}" creado.`);
+      return nuevoItem;
+    } catch (error) {
+      toast.error("No se pudo crear el nuevo ítem.");
+      return { id: 'error', nombre };
+    }
+  };
+  
   const handleOpenDetailsModal = (registro: RegistroCaja) => {
     setRegistroSeleccionado(registro);
     setIsDetailsModalOpen(true);
@@ -524,7 +525,7 @@ const CajaPage = () => {
       <CajaActual
         caja={cajaActual}
         onAbrirCaja={() => setIsAbrirModalOpen(true)}
-        onCerrarCaja={() => setIsCerrarModalOpen(true)}
+        onCerrarCaja={handleAttemptCloseCaja}
       />
 
       <section className="config-section">
@@ -622,7 +623,7 @@ const CajaPage = () => {
       </Modal>
       {cajaActual && (
         <Modal isOpen={isCerrarModalOpen} onClose={() => setIsCerrarModalOpen(false)} title="Cerrar Caja">
-          <CerrarCajaForm caja={cajaActual} onClose={() => setIsCerrarModalOpen(false)} onConfirm={handleCerrarCaja} />
+          <CerrarCajaForm caja={cajaActual} onClose={() => setIsCerrarModalOpen(false)} onConfirm={procederConElCierre} />
         </Modal>
       )}
       {registroSeleccionado && (
@@ -639,8 +640,10 @@ const CajaPage = () => {
             onClose={() => setIsRetiroModalOpen(false)}
             onSave={handleSaveRetiro}
             empleados={empleados}
-            motivos={motivosRetiro}
-            onCreateMotivo={handleCreateMotivoRetiro}
+            tiposDeBeneficiario={tiposDeBeneficiario}
+            itemsPorTipo={itemsPorTipo}
+            onCreateTipoBeneficiario={handleCreateTipoBeneficiario}
+            onCreateItemBeneficiario={handleCreateItemBeneficiario}
           />
       </Modal>
       <Modal isOpen={isIngresoModalOpen} onClose={() => setIsIngresoModalOpen(false)} title="Registrar Nuevo Ingreso">

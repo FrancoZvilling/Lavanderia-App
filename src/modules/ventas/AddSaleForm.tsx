@@ -15,14 +15,12 @@ interface VentaItem {
 
 type SelectOption = { value: string; label: string };
 
-// --- CORRECCIÓN CLAVE AQUÍ ---
 interface AddSaleFormProps {
   nroTicket: string | null;
   clientes: Cliente[];
   tiposDePrenda: TipoDePrenda[];
   onClose: () => void;
   onSave: (nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'>) => void;
-  // La firma de la prop ahora espera TODOS los parámetros
   onCreateCliente: (
     nombreCompleto: string, 
     telefono: string, 
@@ -36,6 +34,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [items, setItems] = useState<VentaItem[]>([{ id: Date.now(), tipoPrendaId: null, cantidad: 1 }]);
   const [montoTotal, setMontoTotal] = useState<number>(0);
+  const [subtotal, setSubtotal] = useState<number>(0);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [metodoDePago, setMetodoDePago] = useState<MetodoDePago>('Efectivo');
@@ -52,9 +51,12 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
   }, [selectedClientId, clientes]);
 
   useEffect(() => {
-    if (isManualAmount) return;
+    if (isManualAmount) {
+      setSubtotal(0);
+      return;
+    };
 
-    const subtotal = items.reduce((sum, item) => {
+    const calculatedSubtotal = items.reduce((sum, item) => {
       const prenda = tiposDePrenda.find(p => p.id === item.tipoPrendaId);
       const cantidad = typeof item.cantidad === 'number' ? item.cantidad : 0;
       if (prenda && cantidad > 0) {
@@ -62,12 +64,14 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
       }
       return sum;
     }, 0);
+    
+    setSubtotal(calculatedSubtotal);
 
-    if (clienteSeleccionado && clienteSeleccionado.descuentoFijo && clienteSeleccionado.descuentoFijo > 0) {
-      const descuento = subtotal * (clienteSeleccionado.descuentoFijo / 100);
-      setMontoTotal(subtotal - descuento);
+    if (clienteSeleccionado?.descuentoFijo && clienteSeleccionado.descuentoFijo > 0) {
+      const descuento = calculatedSubtotal * (clienteSeleccionado.descuentoFijo / 100);
+      setMontoTotal(calculatedSubtotal - descuento);
     } else {
-      setMontoTotal(subtotal);
+      setMontoTotal(calculatedSubtotal);
     }
   }, [items, isManualAmount, tiposDePrenda, clienteSeleccionado]);
 
@@ -117,7 +121,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
     if (!isAnonymous && !selectedClientId) { alert('Por favor, seleccione un cliente.'); return; }
     if (items.some(item => !item.tipoPrendaId || item.cantidad === '' || item.cantidad <= 0)) { alert('Por favor, complete todas las prendas con una cantidad válida.'); return; }
     if (montoTotal < 0) { alert('El monto total no puede ser negativo.'); return; }
-    if (montoTotal === 0 && !window.confirm("El total es $0.00, ¿desea continuar?")) return;
+    if (montoTotal === 0 && (clienteSeleccionado?.descuentoFijo ?? 0) < 100 && !window.confirm("El total es $0.00, ¿desea continuar?")) return;
     
     const nuevaVentaData: Omit<Venta, 'id' | 'fecha' | 'cajaId' | 'nroTicket'> = {
       clienteId: isAnonymous ? null : selectedClientId,
@@ -166,7 +170,7 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
         )}
         
         <div className="form-group">
-          <label>Prendas</label>
+          <label>Servicio</label>
           <div className="items-container">
             {items.map((item) => (
               <div className="prenda-item-row" key={item.id}>
@@ -228,17 +232,36 @@ const AddSaleForm: React.FC<AddSaleFormProps> = ({ nroTicket, clientes, tiposDeP
             ))}
           </div>
         </div>
-
-        {clienteSeleccionado && clienteSeleccionado.descuentoFijo && clienteSeleccionado.descuentoFijo > 0 && !isManualAmount &&
-          <div className="descuento-info">
-            Aplicado descuento del {clienteSeleccionado.descuentoFijo}%
+        
+        {/* --- SECCIÓN DE RESUMEN DE TOTALES CORREGIDA --- */}
+        {!isManualAmount && subtotal > 0 && (
+          <div className="total-summary">
+            <div className="summary-row">
+              <span>Subtotal:</span>
+              <span>{new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(subtotal)}</span>
+            </div>
+            {/* Lógica ternaria para mostrar descuento o "Sin descuento" */}
+            {clienteSeleccionado && (
+              (clienteSeleccionado.descuentoFijo && clienteSeleccionado.descuentoFijo > 0) ? (
+                <div className="summary-row discount">
+                  <span>Descuento ({clienteSeleccionado.descuentoFijo}%):</span>
+                  <span>- {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(subtotal - montoTotal)}</span>
+                </div>
+              ) : (
+                <div className="summary-row no-discount">
+                  <span>Descuento:</span>
+                  <span>Sin descuento</span>
+                </div>
+              )
+            )}
           </div>
-        }
+        )}
 
         <div className="total-container">
-          <strong>Total:</strong>
+          <strong>Total a Pagar:</strong>
           <span> {new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(montoTotal)} </span>
         </div>
+
         <div className="form-group">
           <label htmlFor="observaciones">Observaciones (Opcional)</label>
           <textarea 

@@ -5,15 +5,27 @@ import './Ticket.css';
 interface TicketProps {
   venta: Venta;
   cliente: Cliente | undefined;
+  esPagado: boolean;
+  esDevolucion?: boolean; // Nueva prop opcional para indicar devolución
 }
 
-const Ticket: React.FC<TicketProps> = ({ venta, cliente }) => {
+const Ticket: React.FC<TicketProps> = ({ venta, cliente, esPagado, esDevolucion }) => {
   const fechaVenta = venta.fecha.toDate().toLocaleString('es-AR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
 
   const formatMoneda = (monto: number) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(monto);
+
+  // Lógica para determinar el título del ticket
+  const tituloTicket = esDevolucion 
+    ? 'COMPROBANTE DE DEVOLUCIÓN' 
+    : 'COMPROBANTE DE PEDIDO';
+
+  // Lógica para determinar la etiqueta del monto final
+  const etiquetaTotal = esDevolucion 
+    ? 'MONTO REEMBOLSADO:' 
+    : (esPagado ? 'TOTAL PAGADO:' : 'TOTAL A PAGAR:');
 
   return (
     <div className="ticket-container">
@@ -27,6 +39,11 @@ const Ticket: React.FC<TicketProps> = ({ venta, cliente }) => {
       </div>
 
       <div className="ticket-body">
+        {/* Título dinámico del ticket */}
+        <div className="ticket-title-row" style={{textAlign: 'center', margin: '10px 0', fontWeight: 'bold'}}>
+          {tituloTicket}
+        </div>
+
         <div className="ticket-info-row">
           <span>Fecha:</span>
           <span>{fechaVenta} hs</span>
@@ -42,7 +59,6 @@ const Ticket: React.FC<TicketProps> = ({ venta, cliente }) => {
           <span>Cliente:</span>
           <span>{cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente Anónimo'}</span>
         </div>
-        {/* Mostramos el teléfono si el cliente existe y tiene uno */}
         {cliente && cliente.telefono && (
           <div className="ticket-info-row">
             <span>Teléfono:</span>
@@ -52,8 +68,9 @@ const Ticket: React.FC<TicketProps> = ({ venta, cliente }) => {
         
         <hr className="ticket-separator" />
 
-        <div className="ticket-total-row">
-          <span>TOTAL A PAGAR:</span>
+        {/* Fila del total con lógica condicional para estilo y texto */}
+        <div className={`ticket-total-row ${esPagado || esDevolucion ? 'pagado' : ''}`}>
+          <span>{etiquetaTotal}</span>
           <strong>{formatMoneda(venta.montoTotal)}</strong>
         </div>
       </div>
